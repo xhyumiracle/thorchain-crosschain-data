@@ -1,11 +1,23 @@
 # THORChain Crosschain Data
 
+## About THORChain
+
+[THORChain](https://thorchain.org/) is a decentralized cross-chain liquidity protocol built as an independent Layer 1 blockchain using Cosmos SDK. It enables native asset swaps across different blockchains without wrapped tokens or centralized custodians. The THORChain network produces blocks approximately every 6 seconds ([docs](https://docs.thorchain.org/)).
+
+## Data Selection
+
+THORChain supports cross-chain swaps across many blockchains (BTC, ETH, BSC, AVAX, DOGE, LTC, BCH, etc.) and various assets (native coins, ERC-20 tokens, BEP-20 tokens, etc.).
+
+**This dataset focuses on:**
+- **Chains**: BTC, ETH, DOGE (3 common chains)
+- **Assets**: Native assets only (BTC, ETH, DOGE)
+- **Filter**: `type=swap` and `status=success` records only
 
 ## Data Characteristics
 
 ### Overview
 - **Time Range**: 2025-01-01 ~ 2025-12-25 (1 year)
-- **Total Records**: ~101k swaps across 6 pair files + 152 multi-out
+- **Total Records**: ~101k successful swaps across 6 pair files + 152 multi-out
 - **Pairs**: BTC<>ETH, BTC<>DOGE, ETH<>DOGE (both directions)
 
 ### Volume Distribution
