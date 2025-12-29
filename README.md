@@ -26,6 +26,7 @@ THORChain supports cross-chain swaps across many blockchains (BTC, ETH, BSC, AVA
 - ETH<>DOGE: ~6.2k records (6%)
 
 ![Daily TX Count](png/daily_tx_count.png)
+![Daily Amount](png/daily_amount.png)
 
 ### Height Diff (Swap Completion Time)
 - Most swaps complete quickly: median 6-26 thorchain blocks depending on pair
@@ -36,6 +37,7 @@ THORChain supports cross-chain swaps across many blockchains (BTC, ETH, BSC, AVA
 ![Height Diff CDF](png/height_diff_cdf.png)
 
 ### Traffic Spikes
+- 2025-02-22~03-03: Major spike in ETH→BTC (~10 days, tx count surged from ~100/day to 1000-2000/day, daily amount jumped from ~100 ETH to 20,000-85,000 ETH), related to Bybit hack fund flows
 - 2025-03-14~15: Abnormal spike in BTC<>ETH (1800+ tx/day, height diff up to 5000+ blocks)
 - 2025-06: Another spike (~1100 tx/day, height diff up to 3000+ blocks)
 
@@ -69,6 +71,34 @@ Transform raw data to cleaned format.
 uv run python script/crawl/wash.py --indir raw/data --outdir data
 ```
 
+### generate/ - Generate Query Files for BlockchainMAS
+
+#### gen_query.py
+Generate YAML batch query files from cleaned ndjson data.
+
+```bash
+# Generate from a single ndjson file
+uv run python script/generate/gen_query.py --input ../../data/BTC-DOGE.ndjson --output ../../queries/BTC-DOGE.yaml
+
+# Generate from all ndjson files (batch mode)
+# Note: Automatically skips multi-* files
+uv run python script/generate/gen_query.py --batch --input-dir ../../data --output-dir ../../queries
+```
+
+Query template:
+```
+What is the source transaction for this cross-chain {out.asset} output
+to {out.address} in tx {out.txid} on {out.chain},
+given that it originates from {in.asset} on {in.chain}?
+```
+
+The generated YAML files can be used with BlockchainMAS:
+```bash
+# Run queries from generated YAML
+cd /path/to/BlockchainMAS
+python -m src.main --batch data/thorchain/queries/BTC-DOGE.yaml
+```
+
 ### analyze/ - Tools for Validate and Analyzing Data
 
 #### validate.py
@@ -94,7 +124,7 @@ uv run python script/analyze/plot.py
 
 Output: `png/*.png`
 
-#### filter.py
+#### filter.py (optional)
 Filter records by height diff threshold.
 
 - `-t`: Height diff threshold (records with diff > threshold)
