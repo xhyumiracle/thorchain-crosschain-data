@@ -20,6 +20,14 @@ THORChain supports cross-chain swaps across many blockchains (BTC, ETH, BSC, AVA
 - **Total Records**: ~101k successful swaps across 6 pair files + 152 multi-out
 - **Pairs**: BTC<>ETH, BTC<>DOGE, ETH<>DOGE (both directions)
 
+### Amount Unit Normalization
+THORChain Midgard API normalizes all asset amounts to **1e8 base units** (similar to Bitcoin's satoshi), regardless of the native blockchain's decimal precision ([Midgard docs](https://docs.thorchain.org/technical-documentation/technology/midgard)):
+- **ETH** (native 1e18 wei) → shortened to **1e8**
+- **BTC** (native 1e8 satoshi) → preserved as **1e8**
+- **DOGE** (native 1e8) → preserved as **1e8**
+
+This means: `1 BTC = 1 ETH = 1 DOGE = 100,000,000 units` in the data.
+
 ### Volume Distribution
 - BTC<>ETH dominates: ~87k records (86%)
 - BTC<>DOGE: ~8.5k records (8%)
@@ -27,6 +35,17 @@ THORChain supports cross-chain swaps across many blockchains (BTC, ETH, BSC, AVA
 
 ![Daily TX Count](png/daily_tx_count.png)
 ![Daily Amount](png/daily_amount.png)
+
+### Amount Distribution
+- Amount ranges span multiple orders of magnitude (10³ to 10¹⁰)
+- Each asset shows distinct distribution patterns
+- IN (solid) vs OUT (dashed) amounts show swap behavior
+
+| Pair | Distribution Plot |
+|------|-------------------|
+| BTC<>ETH | ![BTC-ETH Amount Distribution](png/amount_dist_BTC-ETH.png) |
+| BTC<>DOGE | ![BTC-DOGE Amount Distribution](png/amount_dist_BTC-DOGE.png) |
+| ETH<>DOGE | ![ETH-DOGE Amount Distribution](png/amount_dist_ETH-DOGE.png) |
 
 ### Height Diff (Swap Completion Time)
 - Most swaps complete quickly: median 6-26 thorchain blocks depending on pair

@@ -68,13 +68,14 @@ def load_ndjson(filepath: Path) -> list[dict]:
     return records
 
 
-def extract_data(records: list[dict]) -> tuple[list, list, list]:
+def extract_data(records: list[dict]) -> tuple[list, list, list, list]:
     """
-    Extract timestamp, in_amount, and height_diff from records.
-    Returns: (timestamps_as_datetime, in_amounts, height_diffs)
+    Extract timestamp, in_amount, out_amount, and height_diff from records.
+    Returns: (timestamps_as_datetime, in_amounts, out_amounts, height_diffs)
     """
     timestamps = []
     in_amounts = []
+    out_amounts = []
     height_diffs = []
 
     for record in records:
@@ -91,8 +92,14 @@ def extract_data(records: list[dict]) -> tuple[list, list, list]:
         else:
             in_amounts.append(0)
 
-        # Height diff: out[0].thorchainHeight - in[0].thorchainHeight
+        # Out amount (first output)
         out_list = record.get("out", [])
+        if out_list:
+            out_amounts.append(int(out_list[0].get("amount", 0)))
+        else:
+            out_amounts.append(0)
+
+        # Height diff: out[0].thorchainHeight - in[0].thorchainHeight
         if in_list and out_list:
             in_height = int(in_list[0].get("thorchainHeight", 0))
             out_height = int(out_list[0].get("thorchainHeight", 0))
@@ -100,7 +107,7 @@ def extract_data(records: list[dict]) -> tuple[list, list, list]:
         else:
             height_diffs.append(0)
 
-    return timestamps, in_amounts, height_diffs
+    return timestamps, in_amounts, out_amounts, height_diffs
 
 
 def scatter_pair(ax, timestamps, values, pair_name):
@@ -125,13 +132,13 @@ def plot_amount_vs_timestamp(all_data: dict[str, tuple], output_path: Path):
         # Plot pair1
         key1 = f"{pair1}.ndjson"
         if key1 in all_data:
-            timestamps, in_amounts, _ = all_data[key1]
+            timestamps, in_amounts, _, _ = all_data[key1]
             scatter_pair(ax, timestamps, in_amounts, pair1)
 
         # Plot pair2
         key2 = f"{pair2}.ndjson"
         if key2 in all_data:
-            timestamps, in_amounts, _ = all_data[key2]
+            timestamps, in_amounts, _, _ = all_data[key2]
             scatter_pair(ax, timestamps, in_amounts, pair2)
 
         ax.set_ylabel("In Amount", fontsize=10)
@@ -165,13 +172,13 @@ def plot_height_diff_vs_timestamp(all_data: dict[str, tuple], output_path: Path)
         # Plot pair1
         key1 = f"{pair1}.ndjson"
         if key1 in all_data:
-            timestamps, _, height_diffs = all_data[key1]
+            timestamps, _, _, height_diffs = all_data[key1]
             scatter_pair(ax, timestamps, height_diffs, pair1)
 
         # Plot pair2
         key2 = f"{pair2}.ndjson"
         if key2 in all_data:
-            timestamps, _, height_diffs = all_data[key2]
+            timestamps, _, _, height_diffs = all_data[key2]
             scatter_pair(ax, timestamps, height_diffs, pair2)
 
         ax.set_ylabel("Height Diff", fontsize=10)
@@ -226,7 +233,7 @@ def plot_daily_tx_count(all_data: dict[str, tuple], output_path: Path):
         # Plot pair1
         key1 = f"{pair1}.ndjson"
         if key1 in all_data:
-            timestamps, in_amounts, _ = all_data[key1]
+            timestamps, in_amounts, _, _ = all_data[key1]
             dates, tx_counts, _ = aggregate_daily(timestamps, in_amounts)
             color, _ = PAIR_STYLES.get(pair1, ("#333333", "o"))
             label1 = PAIR_LABELS.get(pair1, pair1)
@@ -235,7 +242,7 @@ def plot_daily_tx_count(all_data: dict[str, tuple], output_path: Path):
         # Plot pair2
         key2 = f"{pair2}.ndjson"
         if key2 in all_data:
-            timestamps, in_amounts, _ = all_data[key2]
+            timestamps, in_amounts, _, _ = all_data[key2]
             dates, tx_counts, _ = aggregate_daily(timestamps, in_amounts)
             color, _ = PAIR_STYLES.get(pair2, ("#333333", "o"))
             label2 = PAIR_LABELS.get(pair2, pair2)
@@ -274,7 +281,7 @@ def plot_daily_amount(all_data: dict[str, tuple], output_path: Path):
         # Plot pair1
         key1 = f"{pair1}.ndjson"
         if key1 in all_data:
-            timestamps, in_amounts, _ = all_data[key1]
+            timestamps, in_amounts, _, _ = all_data[key1]
             dates, _, total_amounts = aggregate_daily(timestamps, in_amounts)
             color, _ = PAIR_STYLES.get(pair1, ("#333333", "o"))
             label1 = PAIR_LABELS.get(pair1, pair1)
@@ -283,7 +290,7 @@ def plot_daily_amount(all_data: dict[str, tuple], output_path: Path):
         # Plot pair2
         key2 = f"{pair2}.ndjson"
         if key2 in all_data:
-            timestamps, in_amounts, _ = all_data[key2]
+            timestamps, in_amounts, _, _ = all_data[key2]
             dates, _, total_amounts = aggregate_daily(timestamps, in_amounts)
             color, _ = PAIR_STYLES.get(pair2, ("#333333", "o"))
             label2 = PAIR_LABELS.get(pair2, pair2)
@@ -311,6 +318,150 @@ def plot_daily_amount(all_data: dict[str, tuple], output_path: Path):
     plt.close()
 
 
+def plot_amount_distribution_cdf_single_pair(all_data: dict[str, tuple], output_dir: Path,
+                                              pair1: str, pair2: str, title: str,
+                                              min_amount: int = 1000, max_amount: int = 10**10, num_bins: int = 50):
+    """
+    Plot PDF (binned count) + CDF of in/out amounts for a single pair group.
+    Creates one figure with 2 subplots (one per direction).
+
+    Each subplot shows amounts for 2 assets (one IN, one OUT).
+    Each asset has consistent color/style across both subplots.
+
+    Style mapping:
+    - Each asset gets unique color + fill pattern
+    - Asset style is consistent whether it's IN or OUT
+    """
+    # Asset-specific styles: {asset: color}
+    # Using the existing color scheme from PAIR_STYLES
+    asset_styles = {
+        "BTC": "#d95f02",   # Dark orange
+        "ETH": "#1f78b4",   # Dark blue
+        "DOGE": "#2ca02c",  # Green
+        "LTC": "#9467bd",   # Purple
+    }
+
+    fig, axes = plt.subplots(2, 1, figsize=(12, 10), sharex=True)
+
+    # Create logarithmic bins (shared for both subplots)
+    log_bins = np.logspace(np.log10(min_amount), np.log10(max_amount), num_bins + 1)
+    bin_widths = log_bins[1:] - log_bins[:-1]
+    bin_centers = np.sqrt(log_bins[:-1] * log_bins[1:])  # Geometric mean for log scale
+
+    for idx, pair_name in enumerate([pair1, pair2]):
+        ax_left = axes[idx]
+        ax_right = ax_left.twinx()  # Create right Y-axis for CDF
+
+        key = f"{pair_name}.ndjson"
+        if key not in all_data:
+            continue
+
+        _, in_amounts, out_amounts, _ = all_data[key]
+
+        # Filter amounts to valid range
+        in_amounts_valid = np.array([a for a in in_amounts if min_amount <= a <= max_amount])
+        out_amounts_valid = np.array([a for a in out_amounts if min_amount <= a <= max_amount])
+
+        if len(in_amounts_valid) == 0 and len(out_amounts_valid) == 0:
+            continue
+
+        # Parse pair name to get source and destination assets
+        # e.g., "BTC-ETH" -> in_asset="BTC", out_asset="ETH"
+        parts = pair_name.split("-")
+        in_asset = parts[0]
+        out_asset = parts[1]
+
+        # Get colors for each asset
+        in_color = asset_styles.get(in_asset, "#333333")
+        out_color = asset_styles.get(out_asset, "#666666")
+
+        # Process in amounts (source asset)
+        if len(in_amounts_valid) > 0:
+            # PDF: Bar chart with solid fill (no hatch)
+            counts, _ = np.histogram(in_amounts_valid, bins=log_bins)
+            ax_left.bar(
+                bin_centers, counts, width=bin_widths,
+                color=in_color, alpha=0.7, edgecolor='none',
+                label=f"{in_asset} IN"
+            )
+
+            # CDF: Solid line for IN
+            sorted_amounts = np.sort(in_amounts_valid)
+            cdf = np.arange(1, len(sorted_amounts) + 1) / len(sorted_amounts) * 100
+            plot_x = np.concatenate([[min_amount], sorted_amounts])
+            plot_y = np.concatenate([[0], cdf])
+            ax_right.plot(
+                plot_x, plot_y,
+                color=in_color, linewidth=2.5, linestyle='-', alpha=0.9
+            )
+
+        # Process out amounts (destination asset)
+        if len(out_amounts_valid) > 0:
+            # PDF: Bar chart with solid fill (no hatch)
+            counts, _ = np.histogram(out_amounts_valid, bins=log_bins)
+            ax_left.bar(
+                bin_centers, counts, width=bin_widths,
+                color=out_color, alpha=0.7, edgecolor='none',
+                label=f"{out_asset} OUT"
+            )
+
+            # CDF: Dashed line for OUT
+            sorted_amounts = np.sort(out_amounts_valid)
+            cdf = np.arange(1, len(sorted_amounts) + 1) / len(sorted_amounts) * 100
+            plot_x = np.concatenate([[min_amount], sorted_amounts])
+            plot_y = np.concatenate([[0], cdf])
+            ax_right.plot(
+                plot_x, plot_y,
+                color=out_color, linewidth=2.5, linestyle='--', alpha=0.9
+            )
+
+        # Left axis (PDF)
+        ax_left.set_ylabel("Count", fontsize=11)
+        ax_left.set_xscale("log")
+        ax_left.set_xlim(min_amount, max_amount)
+        ax_left.grid(True, alpha=0.2, which='major', axis='y')
+
+        # Right axis (CDF)
+        ax_right.set_ylabel("CDF %", fontsize=11)
+        ax_right.set_ylim(0, 100)
+
+        # Add horizontal reference lines for CDF
+        for pct in [50, 90, 95, 99]:
+            ax_right.axhline(y=pct, color="gray", linestyle=":", linewidth=0.5, alpha=0.3)
+
+        # Subplot title
+        label = PAIR_LABELS.get(pair_name, pair_name)
+        ax_left.set_title(f"{label}", fontsize=12, pad=10)
+        ax_left.legend(loc="upper left", fontsize=10, framealpha=0.9)
+
+    # X-axis label only on bottom subplot
+    axes[-1].set_xlabel("Amount (log scale)", fontsize=11)
+
+    # Overall title
+    fig.suptitle(f"{title} - Amount Distribution", fontsize=14, y=0.995)
+    plt.tight_layout()
+
+    # Save with pair-specific filename
+    safe_title = title.replace("<>", "-").replace(">", "-").replace("<", "-")
+    output_path = output_dir / f"amount_dist_{safe_title}.png"
+    plt.savefig(output_path, dpi=150, bbox_inches="tight")
+    print(f"Saved: {output_path}")
+    plt.close()
+
+
+def plot_amount_distribution_cdf(all_data: dict[str, tuple], output_dir: Path,
+                                   min_amount: int = 1000, max_amount: int = 10**10, num_bins: int = 50):
+    """
+    Generate separate amount distribution plots for each pair group.
+    Each pair group (e.g., BTC<>ETH) gets its own PNG file.
+    """
+    for pair1, pair2, title in PAIR_GROUPS:
+        plot_amount_distribution_cdf_single_pair(
+            all_data, output_dir, pair1, pair2, title,
+            min_amount, max_amount, num_bins
+        )
+
+
 def plot_height_diff_cdf(all_data: dict[str, tuple], output_path: Path, max_x: int = 1000, bin_size: int = 5):
     """
     Plot PDF (binned count) + CDF of height diff with dual Y-axes.
@@ -332,7 +483,7 @@ def plot_height_diff_cdf(all_data: dict[str, tuple], output_path: Path, max_x: i
             if key not in all_data:
                 continue
 
-            _, _, height_diffs = all_data[key]
+            _, _, _, height_diffs = all_data[key]
             height_diffs = np.array([h for h in height_diffs if 0 < h <= max_x])  # Filter to range
             if len(height_diffs) == 0:
                 continue
@@ -413,8 +564,8 @@ def main():
     for filepath in ndjson_files:
         print(f"Loading {filepath.name}...")
         records = load_ndjson(filepath)
-        timestamps, in_amounts, height_diffs = extract_data(records)
-        all_data[filepath.name] = (timestamps, in_amounts, height_diffs)
+        timestamps, in_amounts, out_amounts, height_diffs = extract_data(records)
+        all_data[filepath.name] = (timestamps, in_amounts, out_amounts, height_diffs)
         print(f"  -> {len(records)} records loaded")
 
     print()
@@ -432,6 +583,8 @@ def main():
     plot_daily_tx_count(all_data, daily_tx_plot_path)
     plot_daily_amount(all_data, daily_amount_plot_path)
     plot_height_diff_cdf(all_data, height_cdf_plot_path)
+    # Generate separate amount distribution plots for each pair group
+    plot_amount_distribution_cdf(all_data, OUTPUT_DIR)
 
     print("\nDone!")
 
