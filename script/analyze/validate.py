@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 
 
-DATA_DIR = Path(__file__).parent.parent.parent / "data"
+DATA_DIR = Path(__file__).parent.parent.parent / "data" / "thorchain-2025"
 
 
 def load_ndjson(filepath: Path) -> list[dict]:

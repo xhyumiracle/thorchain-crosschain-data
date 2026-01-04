@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
 
-DATA_DIR = Path(__file__).parent.parent.parent / "data"
+DATA_DIR = Path(__file__).parent.parent.parent / "data" / "thorchain-2025"
 OUTPUT_DIR = Path(__file__).parent.parent.parent / "png"
 
 # Plot style config

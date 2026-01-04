@@ -13,6 +13,27 @@ THORChain supports cross-chain swaps across many blockchains (BTC, ETH, BSC, AVA
 - **Assets**: Native assets only (BTC, ETH, DOGE)
 - **Filter**: `type=swap` and `status=success` records only
 
+## Quick Start
+
+Query files are not included in the repository (they're generated from the source data). Generate them locally:
+
+```bash
+# Generate queries for mini test set (60 queries, recommended for first try)
+uv run python script/process/gen_query.py --batch --input-dir data/thorchain-2025-filtered-mini --output-dir queries/thorchain-2025-filtered-mini
+
+# Generate queries for filtered dataset (16k queries)
+uv run python script/process/gen_query.py --batch --input-dir data/thorchain-2025-filtered --output-dir queries/thorchain-2025-filtered
+
+# Generate queries for full dataset (101k queries)
+uv run python script/process/gen_query.py --batch --input-dir data/thorchain-2025 --output-dir queries/thorchain-2025
+```
+
+Then use with BlockchainMAS:
+```bash
+cd /path/to/BlockchainMAS
+python -m src.main --batch data/thorchain/queries/thorchain-2025-filtered-mini/BTC-ETH.yaml
+```
+
 ## Data Characteristics
 
 ### Overview
@@ -87,33 +108,41 @@ uv run python script/crawl/fetch.py --outdir raw --min-ts 1735689600 --resume
 Transform raw data to cleaned format.
 
 ```bash
-uv run python script/crawl/wash.py --indir raw/data --outdir data
+uv run python script/crawl/wash.py --indir raw/data --outdir data/thorchain-2025
 ```
 
-### generate/ - Generate Query Files for BlockchainMAS
+### process/ - Data Processing Pipeline
+
+#### filter_data.py
+Filter swap data by amount and time thresholds to create high-quality datasets.
+
+```bash
+# Edit thresholds in script, then run:
+uv run python script/process/filter_data.py
+```
+
+Configuration presets: 0.01%, 0.02%, 0.05%, 0.1% fee rates. See `FILTERING_THRESHOLDS.md` for details.
+
+#### sample_mini.py
+Sample mini dataset from filtered data for testing.
+
+```bash
+uv run python script/process/sample_mini.py
+```
 
 #### gen_query.py
-Generate YAML batch query files from cleaned ndjson data.
+Generate YAML batch query files from ndjson data.
 
 ```bash
 # Generate from a single ndjson file
-uv run python script/generate/gen_query.py --input ../../data/BTC-DOGE.ndjson --output ../../queries/BTC-DOGE.yaml
+uv run python script/process/gen_query.py --input ../../data/BTC-DOGE.ndjson --output ../../queries/BTC-DOGE.yaml
 
 # Generate from all ndjson files (batch mode)
-# Note: Automatically skips multi-* files
-uv run python script/generate/gen_query.py --batch --input-dir ../../data --output-dir ../../queries
-```
-
-Query template:
-```
-What is the source transaction for this cross-chain {out.asset} output
-to {out.address} in tx {out.txid} on {out.chain},
-given that it originates from {in.asset} on {in.chain}?
+uv run python script/process/gen_query.py --batch --input-dir ../../data --output-dir ../../queries
 ```
 
 The generated YAML files can be used with BlockchainMAS:
 ```bash
-# Run queries from generated YAML
 cd /path/to/BlockchainMAS
 python -m src.main --batch data/thorchain/queries/BTC-DOGE.yaml
 ```
@@ -143,8 +172,8 @@ uv run python script/analyze/plot.py
 
 Output: `png/*.png`
 
-#### filter.py (optional)
-Filter records by height diff threshold.
+#### identify_slow_swaps.py
+Identify swaps with abnormally long completion times (for debugging/analysis).
 
 - `-t`: Height diff threshold (records with diff > threshold)
 - `-s`: Start date (YYYY-MM-DD)
@@ -152,11 +181,11 @@ Filter records by height diff threshold.
 
 ```bash
 # Basic
-uv run python script/analyze/filter.py -t 5000
+uv run python script/analyze/identify_slow_swaps.py -t 5000
 
 # With date range
-uv run python script/analyze/filter.py -t 2000 -s 2025-03-01 -e 2025-03-31
+uv run python script/analyze/identify_slow_swaps.py -t 2000 -s 2025-03-01 -e 2025-03-31
 
 # Export JSON
-uv run python script/analyze/filter.py -t 5000 -o results.json
+uv run python script/analyze/identify_slow_swaps.py -t 5000 -o results.json
 ```

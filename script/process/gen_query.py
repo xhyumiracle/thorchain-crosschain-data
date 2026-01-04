@@ -49,12 +49,14 @@ def generate_query_from_record(record: Dict[str, Any]) -> Dict[str, Any] | None:
     in_chain = in_entry.get("chain", "")
     in_asset = in_entry.get("asset", "")
     in_txid = in_entry.get("txID", "")
+    in_amount = int(in_entry.get("amount", 0))
     in_height = in_entry.get("thorchainHeight", 0)
 
     out_chain = out_entry.get("chain", "")
     out_asset = out_entry.get("asset", "")
     out_txid = out_entry.get("txID", "")
     out_address = out_entry.get("address", "")
+    out_amount = int(out_entry.get("amount", 0))
     out_height = out_entry.get("thorchainHeight", 0)
 
     # Validate required fields
@@ -74,16 +76,15 @@ def generate_query_from_record(record: Dict[str, Any]) -> Dict[str, Any] | None:
         in_chain=in_chain,
     )
 
-    # Build expected answer (ground truth)
-    expected = f"Ground Truth: {in_txid}"
-
     # Build query item with metadata
     query_item = {
         "query": query,
-        "comment": expected,
+        "groundtruth": in_txid,
         "metadata": {
             "thorchain_id": record.get("id", ""),
             "thorchain_height_diff": height_diff,
+            "src_amount": in_amount,
+            "dst_amount": out_amount,
         }
     }
 
@@ -127,7 +128,7 @@ def write_yaml_file(queries: List[Dict[str, Any]], output_path: Path) -> None:
         # Write header comment
         f.write("# Batch Query File for BlockchainMAS\n")
         f.write("# Auto-generated from THORChain ndjson data\n")
-        f.write("# Format: Each query has 'query' (required), 'comment' (optional), and 'metadata'\n\n")
+        f.write("# Format: Each query has 'query', 'groundtruth', and 'metadata'\n\n")
 
         # Write YAML
         yaml.safe_dump(
