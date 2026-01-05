@@ -24,7 +24,7 @@ uv run python script/process/gen_query.py --batch --input-dir data/thorchain-202
 # Generate queries for filtered dataset (16k queries)
 uv run python script/process/gen_query.py --batch --input-dir data/thorchain-2025-filtered --output-dir queries/thorchain-2025-filtered
 
-# Generate queries for full dataset (101k queries)
+# Generate queries for full dataset (103k queries)
 uv run python script/process/gen_query.py --batch --input-dir data/thorchain-2025 --output-dir queries/thorchain-2025
 ```
 
@@ -37,8 +37,8 @@ python -m src.main --batch data/thorchain/queries/thorchain-2025-filtered-mini/B
 ## Data Characteristics
 
 ### Overview
-- **Time Range**: 2025-01-01 ~ 2025-12-25 (1 year)
-- **Total Records**: ~101k successful swaps across 6 pair files + 152 multi-out
+- **Time Range**: 2025-01-01 00:00:00 UTC ~ 2025-12-31 23:59:59 UTC (full year)
+- **Total Records**: 102,657 successful swaps across 6 pair files + 156 multi-out
 - **Pairs**: BTC<>ETH, BTC<>DOGE, ETH<>DOGE (both directions)
 
 ### Amount Unit Normalization
@@ -49,11 +49,18 @@ THORChain Midgard API normalizes all asset amounts to **1e8 base units** (simila
 
 This means: `1 BTC = 1 ETH = 1 DOGE = 100,000,000 units` in the data.
 
-### Volume Distribution
-- BTC<>ETH dominates: ~87k records (86%)
-- BTC<>DOGE: ~8.5k records (8%)
-- ETH<>DOGE: ~6.2k records (6%)
+### Timestamp Format
+All timestamps in Midgard API are **Unix timestamps in UTC timezone**, with the `date` field in nanoseconds ([API spec](https://midgard.ninerealms.com/v2/swagger.json)).
 
+### Transaction Count by Direction
+- **BTC→ETH**: 50,597 records (49.3%)
+- **ETH→BTC**: 37,087 records (36.1%)
+- **BTC→DOGE**: 3,482 records (3.4%)
+- **DOGE→BTC**: 5,149 records (5.0%)
+- **ETH→DOGE**: 2,560 records (2.5%)
+- **DOGE→ETH**: 3,782 records (3.7%)
+
+### Daily Distribution
 ![Daily TX Count](png/daily_tx_count.png)
 ![Daily Amount](png/daily_amount.png)
 
@@ -62,9 +69,9 @@ This means: `1 BTC = 1 ETH = 1 DOGE = 100,000,000 units` in the data.
 - Each asset shows distinct distribution patterns
 - IN (solid) vs OUT (dashed) amounts show swap behavior
 
-| Pair | Distribution Plot |
-|------|-------------------|
-| BTC<>ETH | ![BTC-ETH Amount Distribution](png/amount_dist_BTC-ETH.png) |
+| Pair      | Distribution Plot                                             |
+| --------- | ------------------------------------------------------------- |
+| BTC<>ETH  | ![BTC-ETH Amount Distribution](png/amount_dist_BTC-ETH.png)   |
 | BTC<>DOGE | ![BTC-DOGE Amount Distribution](png/amount_dist_BTC-DOGE.png) |
 | ETH<>DOGE | ![ETH-DOGE Amount Distribution](png/amount_dist_ETH-DOGE.png) |
 
@@ -77,7 +84,7 @@ This means: `1 BTC = 1 ETH = 1 DOGE = 100,000,000 units` in the data.
 ![Height Diff CDF](png/height_diff_cdf.png)
 
 ### Traffic Spikes
-- 2025-02-22~03-03: Major spike in ETH→BTC (~10 days, tx count surged from ~100/day to 1000-2000/day, daily amount jumped from ~100 ETH to 20,000-85,000 ETH), related to Bybit hack fund flows
+- 2025-02-22~03-03: Major spike in ETH→BTC (~10 days, tx count surged from ~100/day to 1000-2000/day, daily amount jumped from ~100 ETH to 20,000-85,000 ETH), related to **Bybit hack** fund flows
 - 2025-03-14~15: Abnormal spike in BTC<>ETH (1800+ tx/day, height diff up to 5000+ blocks)
 - 2025-06: Another spike (~1100 tx/day, height diff up to 3000+ blocks)
 
@@ -105,7 +112,7 @@ uv run python script/crawl/fetch.py --outdir raw --min-ts 1735689600 --resume
 ```
 
 #### wash.py
-Transform raw data to cleaned format.
+Transform raw data to cleaned format. Filters `status != 'success'` records and removes `THOR.*` assets (e.g., THOR.RUNE affiliate fees) from outputs to keep only the actual swap assets.
 
 ```bash
 uv run python script/crawl/wash.py --indir raw/data --outdir data/thorchain-2025

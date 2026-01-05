@@ -33,6 +33,13 @@ from typing import Any, Dict, List, Optional, Tuple, TextIO
 
 import requests
 
+from utils import (
+    canonical_action_key,
+    load_seen_keys,
+    get_min_timestamp_from_ndjson,
+    append_ndjson,
+)
+
 
 # Global log file handle
 _log_file: Optional[TextIO] = None
@@ -227,82 +234,7 @@ def try_fetch_actions_page(
         return None, f"json decode error: {e}", 0
 
 
-def canonical_action_key(action: Dict[str, Any]) -> str:
-    date = action.get("date", "")
-    height = action.get("height", "")
-    typ = action.get("type", "")
-    status = action.get("status", "")
-    memo = action.get("memo", "")
-
-    def collect_txids(side: str) -> List[str]:
-        txids: List[str] = []
-        for item in action.get(side, []) or []:
-            txid = (item or {}).get("txID", "")
-            if txid:
-                txids.append(txid)
-        return sorted(set(txids))
-
-    in_tx = ",".join(collect_txids("in"))
-    out_tx = ",".join(collect_txids("out"))
-    return f"{date}|{height}|{typ}|{status}|{memo}|in:{in_tx}|out:{out_tx}"
-
-
-def load_seen_keys(ndjson_path: Path, cap_lines: int = 2_000_000) -> set:
-    if not ndjson_path.exists():
-        return set()
-    keys = set()
-    with ndjson_path.open("r", encoding="utf-8") as f:
-        for i, line in enumerate(f):
-            if i >= cap_lines:
-                log(f"[WARN] dedup key load capped at {cap_lines} lines for {ndjson_path.name}")
-                break
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                obj = json.loads(line)
-                keys.add(canonical_action_key(obj))
-            except Exception:
-                continue
-    return keys
-
-
-def get_min_timestamp_from_ndjson(ndjson_path: Path) -> Optional[int]:
-    """
-    Scan ndjson file to find the minimum timestamp (in nanoseconds).
-    Returns None if file doesn't exist or is empty.
-    """
-    if not ndjson_path.exists():
-        return None
-
-    min_ts: Optional[int] = None
-    with ndjson_path.open("r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                obj = json.loads(line)
-                date = int(obj.get("date", "0"))
-                if date > 0:
-                    if min_ts is None or date < min_ts:
-                        min_ts = date
-            except Exception:
-                continue
-    return min_ts
-
-
-def append_ndjson(path: Path, records: List[Dict[str, Any]], seen: set) -> int:
-    appended = 0
-    with path.open("a", encoding="utf-8") as f:
-        for r in records:
-            k = canonical_action_key(r)
-            if k in seen:
-                continue
-            seen.add(k)
-            f.write(json.dumps(r, ensure_ascii=False) + "\n")
-            appended += 1
-    return appended
+# Deduplication and utility functions moved to utils.py
 
 
 def main() -> None:
@@ -415,7 +347,7 @@ def main() -> None:
             seen[assets] = set()
         else:
             log(f"[INFO] loading dedup keys for assets={assets} ...")
-            seen[assets] = load_seen_keys(ndjson_path)
+            seen[assets] = load_seen_keys(ndjson_path, log_func=log)
 
         # Initialize cursor for this asset
         if args.resume and ndjson_path.exists():
