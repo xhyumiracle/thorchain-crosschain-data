@@ -141,12 +141,12 @@ def get_output_filename(record: Dict[str, Any]) -> Optional[str]:
     Format: {in_chain}-{out_chain}.ndjson
 
     Special cases (in priority order):
-    - multi-in.ndjson: multiple in entries
-    - multi-out.ndjson: multiple out entries
-    - multi-in-out.ndjson: both multiple in and multiple out
-    - multi-coins-in.ndjson: single in entry but with >1 coins (same txID)
-    - multi-coins-out.ndjson: single out entry but with >1 coins (same txID)
-    - multi-coins-in-out.ndjson: both in and out have >1 coins per entry
+    - {in_chain}-{out_chain}-multi-in.ndjson: multiple in entries
+    - {in_chain}-{out_chain}-multi-out.ndjson: multiple out entries
+    - {in_chain}-{out_chain}-multi-in-out.ndjson: both multiple in and multiple out
+    - {in_chain}-{out_chain}-multi-coins-in.ndjson: single in entry but with >1 coins (same txID)
+    - {in_chain}-{out_chain}-multi-coins-out.ndjson: single out entry but with >1 coins (same txID)
+    - {in_chain}-{out_chain}-multi-coins-in-out.ndjson: both in and out have >1 coins per entry
     """
     in_list = record.get("in", []) or []
     out_list = record.get("out", []) or []
@@ -163,6 +163,15 @@ def get_output_filename(record: Dict[str, Any]) -> Optional[str]:
     if not in_chains or not out_chains:
         return None
 
+    # Sort chains on each side for consistent naming
+    in_chains_sorted = sorted(in_chains)
+    out_chains_sorted = sorted(out_chains)
+
+    # Join multiple chains with "|"
+    in_chain_str = "|".join(in_chains_sorted)
+    out_chain_str = "|".join(out_chains_sorted)
+    pair_prefix = f"{in_chain_str}-{out_chain_str}"
+
     multi_in = len(in_list) > 1
     multi_out = len(out_list) > 1
     record_id = record.get("id", "unknown")
@@ -170,13 +179,13 @@ def get_output_filename(record: Dict[str, Any]) -> Optional[str]:
     # Priority 1: multi-in / multi-out (multiple entries)
     if multi_in and multi_out:
         print(f"[WARN] Multi-in AND multi-out: id={record_id}")
-        return "multi-in-out.ndjson"
+        return f"{pair_prefix}-multi-in-out.ndjson"
     elif multi_in:
         print(f"[WARN] Multi-in: id={record_id}")
-        return "multi-in.ndjson"
+        return f"{pair_prefix}-multi-in.ndjson"
     elif multi_out:
         print(f"[WARN] Multi-out: id={record_id}")
-        return "multi-out.ndjson"
+        return f"{pair_prefix}-multi-out.ndjson"
 
     # Priority 2: multi-coins (single entry but with >1 coins, detected by same txID)
     # Count entries per txID for in list
@@ -195,19 +204,16 @@ def get_output_filename(record: Dict[str, Any]) -> Optional[str]:
 
     if multi_coins_in and multi_coins_out:
         print(f"[WARN] Multi-coins-in AND multi-coins-out: id={record_id}")
-        return "multi-coins-in-out.ndjson"
+        return f"{pair_prefix}-multi-coins-in-out.ndjson"
     elif multi_coins_in:
         print(f"[WARN] Multi-coins-in: id={record_id}")
-        return "multi-coins-in.ndjson"
+        return f"{pair_prefix}-multi-coins-in.ndjson"
     elif multi_coins_out:
         print(f"[WARN] Multi-coins-out: id={record_id}")
-        return "multi-coins-out.ndjson"
+        return f"{pair_prefix}-multi-coins-out.ndjson"
 
     # Normal case: single in, single out
-    in_chain = sorted(in_chains)[0]
-    out_chain = sorted(out_chains)[0]
-
-    return f"{in_chain}-{out_chain}.ndjson"
+    return f"{pair_prefix}.ndjson"
 
 
 def process_file(filepath: Path) -> List[tuple[str, Dict[str, Any]]]:
@@ -314,8 +320,8 @@ def main() -> None:
     for output_name, records in output_data.items():
         total_records += len(records)
 
-        # Determine output directory: multi-* files go to multi_outdir
-        if output_name.startswith("multi-"):
+        # Determine output directory: files with "-multi-" go to multi_outdir
+        if "-multi-" in output_name:
             output_path = multi_outdir / output_name
             multi_records += len(records)
         else:
