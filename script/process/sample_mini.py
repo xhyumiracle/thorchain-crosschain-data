@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Sample mini dataset from filtered data.
+Sample mini dataset from high-fast data.
 
 Usage:
     python script/sample_mini.py
@@ -11,8 +11,8 @@ import random
 from pathlib import Path
 
 # Configuration
-INPUT_DIR = Path("data/thorchain-2025-filtered")
-OUTPUT_DIR = Path("data/thorchain-2025-filtered-mini")
+INPUT_DIR = Path("data/thorchain-2025-high-fast")
+OUTPUT_DIR = Path("data/thorchain-2025-high-fast-mini")
 SAMPLE_SIZE = 10  # samples per file
 RANDOM_SEED = 42  # for reproducibility
 

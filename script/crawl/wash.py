@@ -272,18 +272,21 @@ def process_file(filepath: Path) -> List[tuple[str, Dict[str, Any]]]:
 def main() -> None:
     ap = argparse.ArgumentParser(description="Transform raw Thorchain data to cleaned format")
     ap.add_argument("--indir", type=str, required=True, help="Input directory with raw ndjson/json files")
-    ap.add_argument("--outdir", type=str, default="data/thorchain/data", help="Output directory")
+    ap.add_argument("--outdir", type=str, default="data/thorchain/data", help="Output directory for standard records")
+    ap.add_argument("--multi-outdir", type=str, default="data/thorchain-2025-multi", help="Output directory for multi-* records")
     ap.add_argument("--dry-run", action="store_true", help="Print output without writing files")
     args = ap.parse_args()
 
     indir = Path(args.indir)
     outdir = Path(args.outdir)
+    multi_outdir = Path(args.multi_outdir)
 
     if not indir.exists():
         raise SystemExit(f"Input directory does not exist: {indir}")
 
     if not args.dry_run:
         outdir.mkdir(parents=True, exist_ok=True)
+        multi_outdir.mkdir(parents=True, exist_ok=True)
 
     # Collect all json/ndjson files
     files = list(indir.glob("**/*.json")) + list(indir.glob("**/*.ndjson"))
@@ -307,9 +310,16 @@ def main() -> None:
 
     # Write outputs
     total_records = 0
+    multi_records = 0
     for output_name, records in output_data.items():
         total_records += len(records)
-        output_path = outdir / output_name
+
+        # Determine output directory: multi-* files go to multi_outdir
+        if output_name.startswith("multi-"):
+            output_path = multi_outdir / output_name
+            multi_records += len(records)
+        else:
+            output_path = outdir / output_name
 
         if args.dry_run:
             print(f"\n[DRY-RUN] Would write {len(records)} records to {output_path}")
@@ -321,7 +331,7 @@ def main() -> None:
                     f.write(json.dumps(r, ensure_ascii=False) + "\n")
             print(f"[INFO] Wrote {len(records)} records to {output_path}")
 
-    print(f"\n[INFO] Done. Total records processed: {total_records}")
+    print(f"\n[INFO] Done. Total records: {total_records} (multi: {multi_records}, standard: {total_records - multi_records})")
 
 
 if __name__ == "__main__":

@@ -6,3 +6,5 @@ __pycache__/
 # OS
 .DS_Store
 queries/
+archived/
+.cache/

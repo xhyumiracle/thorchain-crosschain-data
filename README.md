@@ -13,16 +13,29 @@ THORChain supports cross-chain swaps across many blockchains (BTC, ETH, BSC, AVA
 - **Assets**: Native assets only (BTC, ETH, DOGE)
 - **Filter**: `type=swap` and `status=success` records only
 
+## Dataset Naming Convention
+
+**Format**: `thorchain-2025-<condition1>-<condition2>` (Short: `Thor25<C1><C2>`)
+
+**Amount**: `L` (Low) | `H` (High) | `X` (eXtra)
+**Time**: `F` (Fast) | `S` (Slow)
+
+**Current datasets**:
+- `thorchain-2025` (Thor25): Full 2025 dataset (102,657 standard 1-in-1-out swaps)
+- `thorchain-2025-high-fast` (Thor25HF): High amount (0.1 BTC / 2 ETH / 1k DOGE) + Fast completion (≤30min, 13,223 records)
+- `thorchain-2025-high-fast-mini` (Thor25HF-mini): Mini test set sampled from HF (60 records, 10 per pair)
+- `thorchain-2025-multi` (Thor25M): Multi-output swaps (156 records, currently not used for queries)
+
 ## Quick Start
 
 Query files are not included in the repository (they're generated from the source data). Generate them locally:
 
 ```bash
 # Generate queries for mini test set (60 queries, recommended for first try)
-uv run python script/process/gen_query.py --batch --input-dir data/thorchain-2025-filtered-mini --output-dir queries/thorchain-2025-filtered-mini
+uv run python script/process/gen_query.py --batch --input-dir data/thorchain-2025-high-fast-mini --output-dir queries/thorchain-2025-high-fast-mini
 
-# Generate queries for filtered dataset (16k queries)
-uv run python script/process/gen_query.py --batch --input-dir data/thorchain-2025-filtered --output-dir queries/thorchain-2025-filtered
+# Generate queries for high-fast dataset (13k queries)
+uv run python script/process/gen_query.py --batch --input-dir data/thorchain-2025-high-fast --output-dir queries/thorchain-2025-high-fast
 
 # Generate queries for full dataset (103k queries)
 uv run python script/process/gen_query.py --batch --input-dir data/thorchain-2025 --output-dir queries/thorchain-2025
@@ -31,7 +44,7 @@ uv run python script/process/gen_query.py --batch --input-dir data/thorchain-202
 Then use with BlockchainMAS:
 ```bash
 cd /path/to/BlockchainMAS
-python -m src.main --batch data/thorchain/queries/thorchain-2025-filtered-mini/BTC-ETH.yaml
+python -m src.main --batch data/thorchain/queries/thorchain-2025-high-fast-mini/BTC-ETH.yaml
 ```
 
 ## Data Characteristics
@@ -95,8 +108,8 @@ All timestamps in Midgard API are **Unix timestamps in UTC timezone**, with the 
 
 ### crawl/ - Fetching Raw Data and Reprocessing
 
-#### fetch.py
-Midgard API crawler (backwards by timestamp).
+#### fetch_swaps.py
+Midgard API crawler (backwards by timestamp) for THORChain swap actions.
 
 - `--min-ts`: Lower bound Unix timestamp, stop when reaching this
 - `--max-ts`: Upper bound Unix timestamp, start from here
@@ -105,14 +118,16 @@ Midgard API crawler (backwards by timestamp).
 
 ```bash
 # Fresh crawl
-uv run python script/crawl/fetch.py --outdir raw --min-ts 1735689600 --fresh
+uv run python script/crawl/fetch_swaps.py --outdir raw --min-ts 1735689600 --fresh
 
 # Resume
-uv run python script/crawl/fetch.py --outdir raw --min-ts 1735689600 --resume
+uv run python script/crawl/fetch_swaps.py --outdir raw --min-ts 1735689600 --resume
 ```
 
 #### wash.py
 Transform raw data to cleaned format. Filters `status != 'success'` records and removes `THOR.*` assets (e.g., THOR.RUNE affiliate fees) from outputs to keep only the actual swap assets.
+
+**Record ID**: `id = SHA-256("\n".join(sorted(entries)) + "\n{type}|{status}")` where each entry = `"{direction}|{chain}|{asset}|{address}|{txID}"` (auto-deduplicated). This derived ID appears as `query_id` in generated query files.
 
 ```bash
 uv run python script/crawl/wash.py --indir raw/data --outdir data/thorchain-2025
@@ -131,7 +146,7 @@ uv run python script/process/filter_data.py
 Configuration presets: 0.01%, 0.02%, 0.05%, 0.1% fee rates. See `FILTERING_THRESHOLDS.md` for details.
 
 #### sample_mini.py
-Sample mini dataset from filtered data for testing.
+Sample mini dataset from high-fast data for testing.
 
 ```bash
 uv run python script/process/sample_mini.py
@@ -146,6 +161,9 @@ uv run python script/process/gen_query.py --input ../../data/BTC-DOGE.ndjson --o
 
 # Generate from all ndjson files (batch mode)
 uv run python script/process/gen_query.py --batch --input-dir ../../data --output-dir ../../queries
+
+# # Optional: Add timestamp_delta metadata (requires blockchain_txs/ directory from enrich/)
+# uv run python script/process/gen_query.py --batch --input-dir ../../data --output-dir ../../queries --blockchain-txs-dir ../../blockchain_txs
 ```
 
 The generated YAML files can be used with BlockchainMAS:

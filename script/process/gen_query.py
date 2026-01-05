@@ -17,7 +17,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import yaml
 
@@ -29,7 +29,60 @@ QUERY_TEMPLATE = (
 )
 
 
-def generate_query_from_record(record: Dict[str, Any]) -> Dict[str, Any] | None:
+def load_blockchain_txs(blockchain_tx_dir: Path) -> Dict[str, Dict[str, Any]]:
+    """Load blockchain transaction data from ndjson files.
+
+    Returns dict mapping (chain, txid) -> tx_data
+    """
+    txs = {}
+
+    if not blockchain_tx_dir.exists():
+        return txs
+
+    for ndjson_file in blockchain_tx_dir.glob("*.ndjson"):
+        chain = ndjson_file.stem.upper()  # btc.ndjson -> BTC
+
+        with open(ndjson_file, 'r') as f:
+            for line in f:
+                try:
+                    tx_data = json.loads(line.strip())
+                    original_txid = tx_data.get('_original_txid', '').upper()
+                    if original_txid:
+                        txs[(chain, original_txid)] = tx_data
+                except json.JSONDecodeError:
+                    continue
+
+    return txs
+
+
+def get_tx_timestamp(tx_data: Dict[str, Any]) -> Optional[int]:
+    """Extract Unix timestamp from Blockchair API response."""
+    tx_info = tx_data.get('transaction', {})
+    time_val = tx_info.get('time')
+
+    if time_val is None:
+        return None
+
+    # If already int, return directly
+    if isinstance(time_val, int):
+        return time_val
+
+    # If string, parse ISO format
+    if isinstance(time_val, str):
+        from datetime import datetime
+        try:
+            dt = datetime.fromisoformat(time_val.replace("Z", "+00:00"))
+            return int(dt.timestamp())
+        except (ValueError, AttributeError):
+            return None
+
+    return None
+
+
+def generate_query_from_record(
+    record: Dict[str, Any],
+    blockchain_txs: Optional[Dict[str, Dict[str, Any]]] = None
+) -> Dict[str, Any] | None:
     """
     Generate a query dict from a single ndjson record.
 
@@ -77,21 +130,39 @@ def generate_query_from_record(record: Dict[str, Any]) -> Dict[str, Any] | None:
     )
 
     # Build query item with metadata
+    metadata = {
+        "query_id": record.get("id", ""),
+        "thorchain_height_diff": height_diff,
+        "src_amount": in_amount,
+        "dst_amount": out_amount,
+    }
+
+    # Add timestamp_delta if blockchain_txs data is available
+    if blockchain_txs:
+        in_tx_data = blockchain_txs.get((in_chain, in_txid.upper()))
+        out_tx_data = blockchain_txs.get((out_chain, out_txid.upper()))
+
+        if in_tx_data and out_tx_data:
+            in_ts = get_tx_timestamp(in_tx_data)
+            out_ts = get_tx_timestamp(out_tx_data)
+
+            if in_ts is not None and out_ts is not None:
+                # timestamp_delta in seconds (out - in)
+                metadata["timestamp_delta"] = out_ts - in_ts
+
     query_item = {
         "query": query,
         "groundtruth": in_txid,
-        "metadata": {
-            "thorchain_id": record.get("id", ""),
-            "thorchain_height_diff": height_diff,
-            "src_amount": in_amount,
-            "dst_amount": out_amount,
-        }
+        "metadata": metadata
     }
 
     return query_item
 
 
-def process_ndjson_file(ndjson_path: Path) -> List[Dict[str, Any]]:
+def process_ndjson_file(
+    ndjson_path: Path,
+    blockchain_txs: Optional[Dict[str, Dict[str, Any]]] = None
+) -> List[Dict[str, Any]]:
     """
     Process a single ndjson file and generate query items.
 
@@ -111,7 +182,7 @@ def process_ndjson_file(ndjson_path: Path) -> List[Dict[str, Any]]:
                 print(f"[WARN] Failed to parse line {line_num} in {ndjson_path.name}: {e}")
                 continue
 
-            query_item = generate_query_from_record(record)
+            query_item = generate_query_from_record(record, blockchain_txs)
             if query_item is not None:
                 queries.append(query_item)
 
@@ -141,11 +212,15 @@ def write_yaml_file(queries: List[Dict[str, Any]], output_path: Path) -> None:
         )
 
 
-def process_single_file(input_path: Path, output_path: Path) -> None:
+def process_single_file(
+    input_path: Path,
+    output_path: Path,
+    blockchain_txs: Optional[Dict[str, Dict[str, Any]]] = None
+) -> None:
     """Process a single ndjson file and generate YAML."""
     print(f"[INFO] Processing {input_path.name}...")
 
-    queries = process_ndjson_file(input_path)
+    queries = process_ndjson_file(input_path, blockchain_txs)
 
     if not queries:
         print(f"[WARN] No valid queries generated from {input_path.name}")
@@ -155,7 +230,11 @@ def process_single_file(input_path: Path, output_path: Path) -> None:
     print(f"[INFO] Generated {len(queries)} queries -> {output_path}")
 
 
-def process_batch(input_dir: Path, output_dir: Path) -> None:
+def process_batch(
+    input_dir: Path,
+    output_dir: Path,
+    blockchain_txs: Optional[Dict[str, Dict[str, Any]]] = None
+) -> None:
     """Process all ndjson files in input_dir and generate YAML files."""
     # Find all ndjson files
     ndjson_files = list(input_dir.glob("*.ndjson"))
@@ -191,7 +270,7 @@ def process_batch(input_dir: Path, output_dir: Path) -> None:
     for ndjson_path in valid_files:
         output_path = output_dir / f"{ndjson_path.stem}.yaml"
 
-        queries = process_ndjson_file(ndjson_path)
+        queries = process_ndjson_file(ndjson_path, blockchain_txs)
 
         if queries:
             write_yaml_file(queries, output_path)
@@ -239,7 +318,24 @@ def main() -> None:
         help="Output directory for YAML files (batch mode)"
     )
 
+    # Optional blockchain transaction data
+    parser.add_argument(
+        "--blockchain-txs-dir",
+        type=str,
+        default=None,
+        help="Optional: Directory containing blockchain transaction ndjson files (for timestamp_delta enrichment)"
+    )
+
     args = parser.parse_args()
+
+    # Load blockchain transaction data if provided
+    blockchain_txs = None
+    if args.blockchain_txs_dir:
+        blockchain_tx_dir = Path(args.blockchain_txs_dir)
+        if blockchain_tx_dir.exists():
+            print(f"[INFO] Loading blockchain transaction data from {blockchain_tx_dir}...")
+            blockchain_txs = load_blockchain_txs(blockchain_tx_dir)
+            print(f"[INFO] Loaded {len(blockchain_txs)} blockchain transactions")
 
     if args.batch:
         # Batch mode
@@ -249,7 +345,7 @@ def main() -> None:
         if not input_dir.exists():
             raise SystemExit(f"Input directory does not exist: {input_dir}")
 
-        process_batch(input_dir, output_dir)
+        process_batch(input_dir, output_dir, blockchain_txs)
 
     else:
         # Single file mode
@@ -265,7 +361,7 @@ def main() -> None:
         # Create output directory if needed
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        process_single_file(input_path, output_path)
+        process_single_file(input_path, output_path, blockchain_txs)
 
 
 if __name__ == "__main__":
