@@ -24,80 +24,22 @@ Usage:
 
 import json
 import argparse
+import sys
 from pathlib import Path
 from datetime import datetime
 from collections import defaultdict
 
+# Import shared blockchain utilities
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from utils.blockchain import load_blockchain_txs, get_tx_timestamp
+
 # Amount level to threshold mapping (level = 1/fee_rate)
 AMOUNT_LEVEL_TO_THRESHOLDS = {
-    10: {"BTC": 10_000_000, "ETH": 200_000_000, "DOGE": 100_000_000_000},           # 0.1 BTC, 2.0 ETH, 1k DOGE
-    20: {"BTC": 20_000_000, "ETH": 400_000_000, "DOGE": 200_000_000_000},           # 0.2 BTC, 4.0 ETH, 2k DOGE
-    50: {"BTC": 50_000_000, "ETH": 1_000_000_000, "DOGE": 500_000_000_000},         # 0.5 BTC, 10.0 ETH, 5k DOGE
-    100: {"BTC": 100_000_000, "ETH": 2_000_000_000, "DOGE": 1_000_000_000_000},     # 1.0 BTC, 20.0 ETH, 10k DOGE
+    10: {"BTC": 10_000_000, "ETH": 200_000_000, "DOGE": 100_000_000_000, "LTC": 400_000_000},           # 0.1 BTC, 2.0 ETH, 1k DOGE, 4.0 LTC
+    20: {"BTC": 20_000_000, "ETH": 400_000_000, "DOGE": 200_000_000_000, "LTC": 800_000_000},           # 0.2 BTC, 4.0 ETH, 2k DOGE, 8.0 LTC
+    50: {"BTC": 50_000_000, "ETH": 1_000_000_000, "DOGE": 500_000_000_000, "LTC": 2_000_000_000},       # 0.5 BTC, 10.0 ETH, 5k DOGE, 20.0 LTC
+    100: {"BTC": 100_000_000, "ETH": 2_000_000_000, "DOGE": 1_000_000_000_000, "LTC": 4_000_000_000},   # 1.0 BTC, 20.0 ETH, 10k DOGE, 40.0 LTC
 }
-
-
-def load_blockchain_txs(blockchain_tx_dir: Path, chain: str) -> dict:
-    """Load blockchain transaction data from ndjson file.
-
-    Each line contains raw Blockchair API response with structure:
-    {
-        "transaction": {...},
-        "inputs": [...],  # UTXO chains only
-        "outputs": [...],  # UTXO chains only
-        "_original_txid": "..."  # Original txid from THORChain data
-    }
-    """
-    tx_file = blockchain_tx_dir / f"{chain.lower()}.ndjson"
-
-    if not tx_file.exists():
-        return {}
-
-    txs = {}
-    with open(tx_file, 'r') as f:
-        for line in f:
-            tx_data = json.loads(line.strip())
-
-            # Use original txid as key (without 0x prefix for consistency)
-            txid = tx_data.get('_original_txid')
-            if not txid:
-                # Fallback: extract from transaction object
-                tx_info = tx_data.get('transaction', {})
-                txid = tx_info.get('hash', '').replace('0x', '').upper()
-
-            if txid:
-                txs[txid.upper()] = tx_data
-
-    return txs
-
-
-def get_tx_timestamp(tx_data: dict) -> int | None:
-    """Extract Unix timestamp from Blockchair API response.
-
-    Blockchair returns time as:
-    - UTXO chains: "time": 1234567890 (Unix timestamp int)
-    - Account chains: "time": "2025-12-31 20:10:59" (UTC string)
-    """
-    tx_info = tx_data.get('transaction', {})
-    time_val = tx_info.get('time')
-
-    if time_val is None:
-        return None
-
-    # If already int, return directly
-    if isinstance(time_val, int):
-        return time_val
-
-    # If string, parse ISO format
-    if isinstance(time_val, str):
-        from datetime import datetime
-        try:
-            dt = datetime.fromisoformat(time_val.replace("Z", "+00:00"))
-            return int(dt.timestamp())
-        except (ValueError, AttributeError):
-            return None
-
-    return None
 
 
 def get_record_datetime(record: dict) -> datetime | None:
@@ -279,10 +221,12 @@ def filter_file(
     """Filter a single ndjson file and return statistics."""
     counts = {'total': 0, 'kept': 0}
     metric_values = []  # For storing height_diff or time_diff values
+    kept_records = []  # Store records that pass filters
 
     output_file.parent.mkdir(parents=True, exist_ok=True)
 
-    with open(input_file, 'r') as f_in, open(output_file, 'w') as f_out:
+    # First pass: filter records
+    with open(input_file, 'r') as f_in:
         for line in f_in:
             line = line.strip()
             if not line:
@@ -310,13 +254,23 @@ def filter_file(
 
             if passes:
                 counts['kept'] += 1
-                f_out.write(line + '\n')
+                kept_records.append(record)
 
                 # Collect metric values
                 if 'height_diff' in stats and stats['height_diff'] is not None:
                     metric_values.append(stats['height_diff'])
                 elif 'time_diff' in stats and stats['time_diff'] is not None:
                     metric_values.append(stats['time_diff'])
+
+    # Second pass: write with updated idx
+    with open(output_file, 'w') as f_out:
+        for idx, record in enumerate(kept_records):
+            # Update idx field at the beginning
+            record_with_idx = {"idx": idx}
+            # Remove old idx if exists, then update with record
+            record_without_idx = {k: v for k, v in record.items() if k != "idx"}
+            record_with_idx.update(record_without_idx)
+            f_out.write(json.dumps(record_with_idx, ensure_ascii=False) + '\n')
 
     counts['metric_values'] = metric_values
     return counts
@@ -472,19 +426,15 @@ def main():
             exit(1)
 
         print("Loading blockchain transaction data...")
-        blockchain_txs = {}
+        blockchain_txs = load_blockchain_txs(blockchain_tx_dir, ["BTC", "ETH", "DOGE"])
         missing_data = []
 
         for asset in ["BTC", "ETH", "DOGE"]:
-            print(f"  Loading {asset}...", end=" ", flush=True)
-            txs = load_blockchain_txs(blockchain_tx_dir, asset)
-            blockchain_txs[asset] = txs
-
-            if not txs:
-                missing_data.append(asset)
-                print(f"⚠ MISSING")
+            if asset in blockchain_txs:
+                print(f"  Loading {asset}... ✓ {len(blockchain_txs[asset]):,} transactions")
             else:
-                print(f"✓ {len(txs):,} transactions")
+                missing_data.append(asset)
+                print(f"  Loading {asset}... ⚠ MISSING")
 
         if missing_data:
             print(f"\n{'='*70}")

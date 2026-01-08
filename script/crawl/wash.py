@@ -333,8 +333,11 @@ def main() -> None:
                 print(json.dumps(r, indent=2, ensure_ascii=False))
         else:
             with output_path.open("w", encoding="utf-8") as f:
-                for r in records:
-                    f.write(json.dumps(r, ensure_ascii=False) + "\n")
+                for idx, r in enumerate(records):
+                    # Add idx field at the beginning
+                    record_with_idx = {"idx": idx}
+                    record_with_idx.update(r)
+                    f.write(json.dumps(record_with_idx, ensure_ascii=False) + "\n")
             print(f"[INFO] Wrote {len(records)} records to {output_path}")
 
     print(f"\n[INFO] Done. Total records: {total_records} (multi: {multi_records}, standard: {total_records - multi_records})")

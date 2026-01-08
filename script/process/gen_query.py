@@ -16,10 +16,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import yaml
+
+# Import shared blockchain utilities
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from utils.blockchain import load_blockchain_txs, get_tx_timestamp
 
 
 QUERY_TEMPLATE = (
@@ -29,62 +34,16 @@ QUERY_TEMPLATE = (
 )
 
 
-def load_blockchain_txs(blockchain_tx_dir: Path) -> Dict[str, Dict[str, Any]]:
-    """Load blockchain transaction data from ndjson files.
-
-    Returns dict mapping (chain, txid) -> tx_data
-    """
-    txs = {}
-
-    if not blockchain_tx_dir.exists():
-        return txs
-
-    for ndjson_file in blockchain_tx_dir.glob("*.ndjson"):
-        chain = ndjson_file.stem.upper()  # btc.ndjson -> BTC
-
-        with open(ndjson_file, 'r') as f:
-            for line in f:
-                try:
-                    tx_data = json.loads(line.strip())
-                    original_txid = tx_data.get('_original_txid', '').upper()
-                    if original_txid:
-                        txs[(chain, original_txid)] = tx_data
-                except json.JSONDecodeError:
-                    continue
-
-    return txs
-
-
-def get_tx_timestamp(tx_data: Dict[str, Any]) -> Optional[int]:
-    """Extract Unix timestamp from Blockchair API response."""
-    tx_info = tx_data.get('transaction', {})
-    time_val = tx_info.get('time')
-
-    if time_val is None:
-        return None
-
-    # If already int, return directly
-    if isinstance(time_val, int):
-        return time_val
-
-    # If string, parse ISO format
-    if isinstance(time_val, str):
-        from datetime import datetime
-        try:
-            dt = datetime.fromisoformat(time_val.replace("Z", "+00:00"))
-            return int(dt.timestamp())
-        except (ValueError, AttributeError):
-            return None
-
-    return None
-
-
 def generate_query_from_record(
     record: Dict[str, Any],
     blockchain_txs: Optional[Dict[str, Dict[str, Any]]] = None
 ) -> Dict[str, Any] | None:
     """
     Generate a query dict from a single ndjson record.
+
+    Args:
+        record: THORChain swap record
+        blockchain_txs: Dict mapping chain -> (txid -> tx_data), same format as utils.blockchain
 
     Returns None if record is invalid or should be skipped.
     """
@@ -116,6 +75,10 @@ def generate_query_from_record(
     if not all([in_chain, in_asset, in_txid, out_chain, out_asset, out_txid, out_address]):
         return None
 
+    # Validate idx field exists
+    if "idx" not in record:
+        raise ValueError(f"Record missing required 'idx' field: id={record.get('id', 'unknown')}")
+
     # Calculate height diff
     height_diff = out_height - in_height if (out_height and in_height) else 0
 
@@ -131,7 +94,8 @@ def generate_query_from_record(
 
     # Build query item with metadata
     metadata = {
-        "query_id": record.get("id", ""),
+        "query_idx": record["idx"],  # Dataset-local index
+        "query_id": record.get("id", ""),  # Hash-based stable ID
         "thorchain_height_diff": height_diff,
         "src_amount": in_amount,
         "dst_amount": out_amount,
@@ -139,8 +103,8 @@ def generate_query_from_record(
 
     # Add timestamp_delta if blockchain_txs data is available
     if blockchain_txs:
-        in_tx_data = blockchain_txs.get((in_chain, in_txid.upper()))
-        out_tx_data = blockchain_txs.get((out_chain, out_txid.upper()))
+        in_tx_data = blockchain_txs.get(in_chain, {}).get(in_txid.upper())
+        out_tx_data = blockchain_txs.get(out_chain, {}).get(out_txid.upper())
 
         if in_tx_data and out_tx_data:
             in_ts = get_tx_timestamp(in_tx_data)
@@ -334,8 +298,10 @@ def main() -> None:
         blockchain_tx_dir = Path(args.blockchain_txs_dir)
         if blockchain_tx_dir.exists():
             print(f"[INFO] Loading blockchain transaction data from {blockchain_tx_dir}...")
-            blockchain_txs = load_blockchain_txs(blockchain_tx_dir)
-            print(f"[INFO] Loaded {len(blockchain_txs)} blockchain transactions")
+            # Load all chains (None = auto-discover all .ndjson files)
+            blockchain_txs = load_blockchain_txs(blockchain_tx_dir, chains=None)
+            total_txs = sum(len(txs) for txs in blockchain_txs.values())
+            print(f"[INFO] Loaded {total_txs} blockchain transactions from {len(blockchain_txs)} chains")
 
     if args.batch:
         # Batch mode

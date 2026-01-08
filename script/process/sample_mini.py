@@ -52,11 +52,16 @@ def main():
         n = min(SAMPLE_SIZE, len(records))
         sampled = random.sample(records, n)
 
-        # Write
+        # Write with idx field
         out_file = OUTPUT_DIR / file.name
         with open(out_file, "w") as f:
-            for record in sampled:
-                f.write(json.dumps(record, ensure_ascii=False) + "\n")
+            for idx, record in enumerate(sampled):
+                # Add/update idx field at the beginning
+                record_with_idx = {"idx": idx}
+                # Remove old idx if exists, then update with record
+                record_without_idx = {k: v for k, v in record.items() if k != "idx"}
+                record_with_idx.update(record_without_idx)
+                f.write(json.dumps(record_with_idx, ensure_ascii=False) + "\n")
 
         total_sampled += n
         print(f"{file.name:15} {len(records):6,} -> {n:3} samples")
