@@ -21,9 +21,9 @@ THORChain supports cross-chain swaps across many blockchains (BTC, ETH, BSC, AVA
 **Time**: `F` (Fast) | `S` (Slow)
 
 **Current datasets**:
-- `thorchain-2025` (Thor25): Full 2025 dataset (102,657 standard 1-in-1-out swaps)
-- `thorchain-2025-high-fast` (Thor25HF): High amount (0.1 BTC / 2 ETH / 1k DOGE) + Fast completion (≤30min, 13,223 records)
-- `thorchain-2025-high-fast-mini` (Thor25HF-mini): Mini test set sampled from HF (60 records, 10 per pair)
+- `thorchain-2025` (Thor25): Full 2025 dataset (151,461 standard 1-in-1-out swaps)
+- `thorchain-2025-high-fast` (Thor25HF): High amount (0.09 BTC / 1.9 ETH / 1k DOGE) + Fast completion (≤30min, 13,857 records)
+- `thorchain-2025-high-fast-mini` (Thor25HF-mini): Mini test set sampled from HF (1,200 records, 100 per pair)
 - `thorchain-2025-multi` (Thor25M): Multi-output swaps (156 records, currently not used for queries)
 
 ## Quick Start
@@ -31,13 +31,13 @@ THORChain supports cross-chain swaps across many blockchains (BTC, ETH, BSC, AVA
 Query files are not included in the repository (they're generated from the source data). Generate them locally:
 
 ```bash
-# Generate queries for mini test set (60 queries, recommended for first try)
+# Generate queries for mini test set (1,200 queries, recommended for first try)
 uv run python script/process/gen_query.py --batch --input-dir data/thorchain-2025-high-fast-mini --output-dir queries/thorchain-2025-high-fast-mini
 
-# Generate queries for high-fast dataset (13k queries)
+# Generate queries for high-fast dataset (~13.9k queries)
 uv run python script/process/gen_query.py --batch --input-dir data/thorchain-2025-high-fast --output-dir queries/thorchain-2025-high-fast
 
-# Generate queries for full dataset (103k queries)
+# Generate queries for full dataset (~151k queries)
 uv run python script/process/gen_query.py --batch --input-dir data/thorchain-2025 --output-dir queries/thorchain-2025
 ```
 
@@ -51,27 +51,55 @@ python -m src.main --batch data/thorchain/queries/thorchain-2025-high-fast-mini/
 
 ### Overview
 - **Time Range**: 2025-01-01 00:00:00 UTC ~ 2025-12-31 23:59:59 UTC (full year)
-- **Total Records**: 102,657 successful swaps across 6 pair files + 156 multi-out
-- **Pairs**: BTC<>ETH, BTC<>DOGE, ETH<>DOGE (both directions)
+- **Total Records**: 151,461 successful swaps across 12 pair files
+- **Pairs**: BTC<>ETH, BTC<>DOGE, BTC<>LTC, ETH<>DOGE, ETH<>LTC, DOGE<>LTC (both directions)
 
 ### Amount Unit Normalization
 THORChain Midgard API normalizes all asset amounts to **1e8 base units** (similar to Bitcoin's satoshi), regardless of the native blockchain's decimal precision ([Midgard docs](https://docs.thorchain.org/technical-documentation/technology/midgard)):
-- **ETH** (native 1e18 wei) → shortened to **1e8**
 - **BTC** (native 1e8 satoshi) → preserved as **1e8**
+- **ETH** (native 1e18 wei) → shortened to **1e8**
 - **DOGE** (native 1e8) → preserved as **1e8**
+- **LTC** (native 1e8 litoshi) → preserved as **1e8**
 
-This means: `1 BTC = 1 ETH = 1 DOGE = 100,000,000 units` in the data.
+This means: `1 BTC = 1 ETH = 1 DOGE = 1 LTC = 100,000,000 units` in the data.
 
 ### Timestamp Format
 All timestamps in Midgard API are **Unix timestamps in UTC timezone**, with the `date` field in nanoseconds ([API spec](https://midgard.ninerealms.com/v2/swagger.json)).
 
+### Record Indexing
+Each record has two identifiers: `idx` (dataset-local sequential index starting from 0) and `id` (hash-based stable identifier across all datasets).
+
 ### Transaction Count by Direction
-- **BTC→ETH**: 50,597 records (49.3%)
-- **ETH→BTC**: 37,087 records (36.1%)
-- **BTC→DOGE**: 3,482 records (3.4%)
-- **DOGE→BTC**: 5,149 records (5.0%)
-- **ETH→DOGE**: 2,560 records (2.5%)
-- **DOGE→ETH**: 3,782 records (3.7%)
+
+**Full Dataset (151,461 records):**
+- **BTC→ETH**: 50,597 records (33.4%)
+- **ETH→BTC**: 37,087 records (24.5%)
+- **LTC→BTC**: 18,090 records (11.9%)
+- **BTC→LTC**: 11,256 records (7.4%)
+- **LTC→ETH**: 9,503 records (6.3%)
+- **ETH→LTC**: 7,819 records (5.2%)
+- **DOGE→BTC**: 5,149 records (3.4%)
+- **DOGE→ETH**: 3,782 records (2.5%)
+- **BTC→DOGE**: 3,482 records (2.3%)
+- **ETH→DOGE**: 2,560 records (1.7%)
+- **DOGE→LTC**: 1,016 records (0.7%)
+- **LTC→DOGE**: 1,120 records (0.7%)
+
+**High-Fast Dataset (13,857 records):**
+- **BTC→ETH**: 6,511 records (47.0%) [time-filtered ≤30min]
+- **ETH→BTC**: 4,928 records (35.6%) [time-filtered ≤30min]
+- **DOGE→BTC**: 1,469 records (10.6%) [time-filtered ≤30min]
+- **DOGE→ETH**: 739 records (5.3%) [time-filtered ≤30min]
+- **BTC→DOGE**: 107 records (0.8%) [time-filtered ≤30min]
+- **ETH→DOGE**: 103 records (0.7%) [time-filtered ≤30min]
+- **LTC→BTC**: 0 records [amount-only, no time filter]
+- **LTC→ETH**: 0 records [amount-only, no time filter]
+- **BTC→LTC**: 0 records [amount-only, no time filter]
+- **ETH→LTC**: 0 records [amount-only, no time filter]
+- **DOGE→LTC**: 0 records [amount-only, no time filter]
+- **LTC→DOGE**: 0 records [amount-only, no time filter]
+
+**Note**: LTC pairs currently have 0 records because blockchain transaction data is not available for time-based filtering. BTC/ETH/DOGE pairs use both amount (≥0.09 BTC / ≥1.9 ETH / ≥1000 DOGE) and time (≤30min) filtering.
 
 ### Daily Distribution
 ![Daily TX Count](png/daily_tx_count.png)
