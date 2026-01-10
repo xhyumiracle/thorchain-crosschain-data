@@ -9,8 +9,8 @@
 THORChain supports cross-chain swaps across many blockchains (BTC, ETH, BSC, AVAX, DOGE, LTC, BCH, etc.) and various assets (native coins, ERC-20 tokens, BEP-20 tokens, etc.).
 
 **This dataset focuses on:**
-- **Chains**: BTC, ETH, DOGE (3 common chains)
-- **Assets**: Native assets only (BTC, ETH, DOGE)
+- **Chains**: BTC, ETH, DOGE, LTC (4 common chains)
+- **Assets**: Native assets only (BTC, ETH, DOGE, LTC)
 - **Filter**: `type=swap` and `status=success` records only
 
 ## Dataset Naming Convention
@@ -22,7 +22,7 @@ THORChain supports cross-chain swaps across many blockchains (BTC, ETH, BSC, AVA
 
 **Current datasets**:
 - `thorchain-2025` (Thor25): Full 2025 dataset (151,461 standard 1-in-1-out swaps)
-- `thorchain-2025-high-fast` (Thor25HF): High amount (0.09 BTC / 1.9 ETH / 1k DOGE) + Fast completion (≤30min, 13,857 records)
+- `thorchain-2025-high-fast` (Thor25HF): High amount (0.09 BTC / 1.9 ETH / 2.5 LTC / 1k DOGE) + Fast completion (≤30min, 20,235 records)
 - `thorchain-2025-high-fast-mini` (Thor25HF-mini): Mini test set sampled from HF (1,200 records, 100 per pair)
 - `thorchain-2025-multi` (Thor25M): Multi-output swaps (156 records, currently not used for queries)
 
@@ -34,7 +34,7 @@ Query files are not included in the repository (they're generated from the sourc
 # Generate queries for mini test set (1,200 queries, recommended for first try)
 uv run python script/process/gen_query.py --batch --input-dir data/thorchain-2025-high-fast-mini --output-dir queries/thorchain-2025-high-fast-mini
 
-# Generate queries for high-fast dataset (~13.9k queries)
+# Generate queries for high-fast dataset (~20.2k queries)
 uv run python script/process/gen_query.py --batch --input-dir data/thorchain-2025-high-fast --output-dir queries/thorchain-2025-high-fast
 
 # Generate queries for full dataset (~151k queries)
@@ -85,21 +85,21 @@ Each record has two identifiers: `idx` (dataset-local sequential index starting 
 - **DOGE→LTC**: 1,016 records (0.7%)
 - **LTC→DOGE**: 1,120 records (0.7%)
 
-**High-Fast Dataset (13,857 records):**
-- **BTC→ETH**: 6,511 records (47.0%) [time-filtered ≤30min]
-- **ETH→BTC**: 4,928 records (35.6%) [time-filtered ≤30min]
-- **DOGE→BTC**: 1,469 records (10.6%) [time-filtered ≤30min]
-- **DOGE→ETH**: 739 records (5.3%) [time-filtered ≤30min]
-- **BTC→DOGE**: 107 records (0.8%) [time-filtered ≤30min]
-- **ETH→DOGE**: 103 records (0.7%) [time-filtered ≤30min]
-- **LTC→BTC**: 0 records [amount-only, no time filter]
-- **LTC→ETH**: 0 records [amount-only, no time filter]
-- **BTC→LTC**: 0 records [amount-only, no time filter]
-- **ETH→LTC**: 0 records [amount-only, no time filter]
-- **DOGE→LTC**: 0 records [amount-only, no time filter]
-- **LTC→DOGE**: 0 records [amount-only, no time filter]
+**High-Fast Dataset (20,235 records):**
+- **BTC→ETH**: 6,511 records (32.2%)
+- **ETH→BTC**: 4,928 records (24.4%)
+- **LTC→BTC**: 3,234 records (16.0%)
+- **LTC→ETH**: 2,038 records (10.1%)
+- **DOGE→BTC**: 1,469 records (7.3%)
+- **DOGE→ETH**: 739 records (3.7%)
+- **BTC→LTC**: 639 records (3.2%)
+- **ETH→LTC**: 246 records (1.2%)
+- **DOGE→LTC**: 117 records (0.6%)
+- **BTC→DOGE**: 107 records (0.5%)
+- **LTC→DOGE**: 104 records (0.5%)
+- **ETH→DOGE**: 103 records (0.5%)
 
-**Note**: LTC pairs currently have 0 records because blockchain transaction data is not available for time-based filtering. BTC/ETH/DOGE pairs use both amount (≥0.09 BTC / ≥1.9 ETH / ≥1000 DOGE) and time (≤30min) filtering.
+All pairs filtered with: source tx amount thresholds (≥0.09 BTC / ≥1.9 ETH / ≥2.5 LTC / ≥1000 DOGE) + time constraint (≤30min).
 
 ### Daily Distribution
 ![Daily TX Count](png/daily_tx_count.png)
