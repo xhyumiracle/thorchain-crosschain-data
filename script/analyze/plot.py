@@ -3,11 +3,14 @@
 Plot THORChain swap data:
 1. Amount vs Timestamp (for all non-multi-* files)
 2. Height Diff vs Timestamp (out[0].thorchainHeight - in[0].thorchainHeight)
+3. Time Diff vs Timestamp (optional, requires blockchain_txs/)
+4. Time Diff CDF (optional, requires blockchain_txs/)
 
 Each plot has 3 subplots grouped by reverse pairs.
 """
 
 import json
+import sys
 from pathlib import Path
 from collections import defaultdict
 from datetime import datetime
@@ -16,9 +19,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
+# Add parent directory to path for utils import
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from utils.blockchain import load_blockchain_txs, get_tx_timestamp
 
 DATA_DIR = Path(__file__).parent.parent.parent / "data" / "thorchain-2025"
 OUTPUT_DIR = Path(__file__).parent.parent.parent / "png"
+BLOCKCHAIN_TXS_DIR = Path(__file__).parent.parent.parent / "blockchain_txs"
 
 # Plot style config
 SCATTER_ALPHA = 0.3  # Transparency for scatter points
@@ -500,7 +507,7 @@ def plot_height_diff_cdf(all_data: dict[str, tuple], output_path: Path, max_x: i
             bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
             ax_left.vlines(
                 bin_centers + offset, 0, counts,
-                colors=color, alpha=0.8, linewidth=1.5, label=f"{label} (count)"
+                colors=color, alpha=0.8, linewidth=1.5, label=label
             )
 
             # CDF: Line on right Y-axis, ensure it starts from (0, 0)
@@ -511,7 +518,7 @@ def plot_height_diff_cdf(all_data: dict[str, tuple], output_path: Path, max_x: i
             plot_y = np.concatenate([[0, 0], cdf])
             ax_right.plot(
                 plot_x, plot_y,
-                color=color, linewidth=1.5, label=f"{label} (CDF)"
+                color=color, linewidth=1.5
             )
 
         # Left axis (PDF)
@@ -530,14 +537,190 @@ def plot_height_diff_cdf(all_data: dict[str, tuple], output_path: Path, max_x: i
         ax_left.set_title(title, fontsize=11)
         # No grid to keep vlines clean
 
-        # Combined legend
+        # Legend
         lines1, labels1 = ax_left.get_legend_handles_labels()
-        lines2, labels2 = ax_right.get_legend_handles_labels()
-        ax_right.legend(lines1 + lines2, labels1 + labels2, loc="center right", fontsize=8)
+        if lines1:
+            ax_left.legend(lines1, labels1, loc="upper right", fontsize=9)
 
     axes[-1].set_xlabel("Height Diff (blocks)", fontsize=11)
 
     fig.suptitle(f"Height Diff Distribution: Count (bin={bin_size}) + CDF", fontsize=13)
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=150, bbox_inches="tight")
+    print(f"Saved: {output_path}")
+    plt.close()
+
+
+
+
+def extract_time_diffs(records: list[dict], blockchain_txs: dict, pair_name: str) -> tuple[list, list]:
+    """
+    Extract time_diff and timestamps from records using blockchain tx data.
+    Returns: (timestamps_as_datetime, time_diffs_in_seconds)
+    Missing tx hashes will print warnings and be skipped.
+    """
+    timestamps = []
+    time_diffs = []
+    missing_txs = set()
+
+    for record in records:
+        in_list = record.get('in', [])
+        out_list = record.get('out', [])
+        if not in_list or not out_list:
+            continue
+
+        in_entry = in_list[0]
+        out_entry = out_list[0]
+        in_chain = in_entry.get('chain', '')
+        out_chain = out_entry.get('chain', '')
+        in_txid = in_entry.get('txID', '').upper()
+        out_txid = out_entry.get('txID', '').upper()
+
+        in_tx = blockchain_txs.get(in_chain, {}).get(in_txid)
+        out_tx = blockchain_txs.get(out_chain, {}).get(out_txid)
+
+        if not in_tx:
+            missing_txs.add(f"{in_chain}:{in_txid[:16]}...")
+            continue
+        if not out_tx:
+            missing_txs.add(f"{out_chain}:{out_txid[:16]}...")
+            continue
+
+        in_ts = get_tx_timestamp(in_tx)
+        out_ts = get_tx_timestamp(out_tx)
+        if in_ts is None or out_ts is None:
+            continue
+
+        time_diff = out_ts - in_ts
+        ts_ns = int(record.get("timestamp", 0))
+        ts_sec = ts_ns / 1e9
+        dt = datetime.fromtimestamp(ts_sec)
+        timestamps.append(dt)
+        time_diffs.append(time_diff)
+
+    if missing_txs:
+        print(f"  [WARN] {pair_name}: Missing {len(missing_txs)} blockchain tx(s):")
+        for tx_ref in sorted(missing_txs)[:3]:
+            print(f"    - {tx_ref}")
+        if len(missing_txs) > 3:
+            print(f"    ... and {len(missing_txs) - 3} more")
+
+    return timestamps, time_diffs
+
+
+def plot_time_diff_vs_timestamp(all_time_data: dict[str, tuple], output_path: Path):
+    """Plot time_diff vs timestamp as 3 subplots grouped by reverse pairs."""
+    fig, axes = plt.subplots(3, 1, figsize=(14, 12), sharex=True)
+
+    for idx, (pair1, pair2, title) in enumerate(PAIR_GROUPS):
+        ax = axes[idx]
+        has_data = False
+
+        for pair_name in [pair1, pair2]:
+            key = f"{pair_name}.ndjson"
+            if key in all_time_data:
+                timestamps, time_diffs = all_time_data[key]
+                if len(timestamps) > 0:
+                    scatter_pair(ax, timestamps, time_diffs, pair_name)
+                    has_data = True
+
+        ax.set_ylabel("Time Diff (seconds)", fontsize=10)
+        ax.set_title(title, fontsize=11)
+        if has_data:
+            ax.legend(loc="upper right", fontsize=9)
+        ax.grid(True, alpha=GRID_ALPHA)
+        ax.axhline(y=0, color='red', linestyle='--', linewidth=0.8, alpha=0.5)
+
+    axes[-1].set_xlabel("Timestamp", fontsize=11)
+    axes[-1].xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
+    axes[-1].xaxis.set_major_locator(mdates.AutoDateLocator())
+    plt.xticks(rotation=45, ha="right")
+
+    fig.suptitle("Time Difference vs Timestamp (Grouped by Reverse Pairs)", fontsize=13)
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=150, bbox_inches="tight")
+    print(f"Saved: {output_path}")
+    plt.close()
+
+
+def plot_time_diff_cdf(all_time_data: dict[str, tuple], output_path: Path, max_x: int = 2000, bin_size: int = 30):
+    """Plot PDF (binned count) + CDF of time diff with dual Y-axes."""
+    fig, axes = plt.subplots(3, 1, figsize=(14, 12), sharex=True)
+    OFFSET = bin_size * 0.15
+
+    # First pass: collect all data to determine global x-axis range
+    all_min_vals = []
+    all_max_vals = []
+    for pair1, pair2, _ in PAIR_GROUPS:
+        for pair_name in [pair1, pair2]:
+            key = f"{pair_name}.ndjson"
+            if key in all_time_data:
+                timestamps, time_diffs = all_time_data[key]
+                if len(time_diffs) > 0:
+                    time_diffs_arr = np.array([t for t in time_diffs if -max_x <= t <= max_x])
+                    if len(time_diffs_arr) > 0:
+                        all_min_vals.append(np.min(time_diffs_arr))
+                        all_max_vals.append(np.max(time_diffs_arr))
+
+    # Determine reasonable x-axis range with some padding
+    if all_min_vals and all_max_vals:
+        global_min = min(all_min_vals)
+        global_max = max(all_max_vals)
+        # Add 5% padding on each side
+        padding = (global_max - global_min) * 0.05
+        xlim_min = global_min - padding
+        xlim_max = global_max + padding
+    else:
+        xlim_min, xlim_max = -max_x, max_x
+
+    for idx, (pair1, pair2, title) in enumerate(PAIR_GROUPS):
+        ax_left = axes[idx]
+        ax_right = ax_left.twinx()
+
+        for i, pair_name in enumerate([pair1, pair2]):
+            key = f"{pair_name}.ndjson"
+            if key not in all_time_data:
+                continue
+
+            timestamps, time_diffs = all_time_data[key]
+            if len(time_diffs) == 0:
+                continue
+
+            time_diffs_arr = np.array([t for t in time_diffs if -max_x <= t <= max_x])
+            if len(time_diffs_arr) == 0:
+                continue
+
+            color, _ = PAIR_STYLES.get(pair_name, ("#333333", "o"))
+            label = PAIR_LABELS.get(pair_name, pair_name)
+            offset = -OFFSET if i == 0 else OFFSET
+
+            bins = np.arange(xlim_min, xlim_max + bin_size, bin_size)
+            counts, bin_edges = np.histogram(time_diffs_arr, bins=bins)
+            bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+            ax_left.vlines(bin_centers + offset, 0, counts, colors=color, alpha=0.8, linewidth=1.5, label=label)
+
+            sorted_diffs = np.sort(time_diffs_arr)
+            cdf = np.arange(1, len(sorted_diffs) + 1) / len(sorted_diffs) * 100
+            plot_x = np.concatenate([[sorted_diffs[0]], sorted_diffs])
+            plot_y = np.concatenate([[0], cdf])
+            ax_right.plot(plot_x, plot_y, color=color, linewidth=1.5)
+
+        ax_left.set_ylabel("Count", fontsize=10)
+        ax_left.set_xlim(xlim_min, xlim_max)
+        ax_left.axvline(x=0, color='red', linestyle='--', linewidth=0.8, alpha=0.5)
+        ax_right.set_ylabel("Coverage % (CDF)", fontsize=10)
+        ax_right.set_ylim(0, 100)
+
+        for pct in [90, 95, 99]:
+            ax_right.axhline(y=pct, color="gray", linestyle="--", linewidth=0.5, alpha=0.5)
+
+        ax_left.set_title(title, fontsize=11)
+        lines1, labels1 = ax_left.get_legend_handles_labels()
+        if lines1:
+            ax_left.legend(lines1, labels1, loc="upper right", fontsize=9)
+
+    axes[-1].set_xlabel("Time Diff (seconds)", fontsize=11)
+    fig.suptitle(f"Time Diff Distribution: Count (bin={bin_size}s) + CDF", fontsize=13)
     plt.tight_layout()
     plt.savefig(output_path, dpi=150, bbox_inches="tight")
     print(f"Saved: {output_path}")
@@ -570,6 +753,35 @@ def main():
 
     print()
 
+    # Check if blockchain_txs directory exists
+    has_blockchain_txs = BLOCKCHAIN_TXS_DIR.exists()
+    if has_blockchain_txs:
+        print(f"Found blockchain_txs directory, loading transaction data...")
+        blockchain_txs = load_blockchain_txs(BLOCKCHAIN_TXS_DIR, ['BTC', 'ETH', 'DOGE'])  # LTC doesn't have blockchain tx data
+        for chain, txs in blockchain_txs.items():
+            print(f"  Loaded {len(txs)} {chain} transactions")
+
+        if blockchain_txs:
+            print(f"\nExtracting time_diff data...")
+            all_time_data = {}
+            for filepath in ndjson_files:
+                pair_name = filepath.stem
+                # Only process pairs that have blockchain data (BTC/ETH/DOGE)
+                if any(chain in pair_name for chain in ['BTC', 'ETH', 'DOGE']):
+                    print(f"  Processing {pair_name}...")
+                    records = load_ndjson(filepath)
+                    timestamps, time_diffs = extract_time_diffs(records, blockchain_txs, pair_name)
+                    if len(timestamps) > 0:
+                        all_time_data[filepath.name] = (timestamps, time_diffs)
+                        print(f"    -> {len(time_diffs)} time_diff values extracted")
+            print()
+        else:
+            print(f"  [WARN] No blockchain tx files found, skipping time_diff plots")
+            all_time_data = None
+    else:
+        print(f"blockchain_txs directory not found, skipping time_diff plots\n")
+        all_time_data = None
+
     # Generate plots
     amount_plot_path = OUTPUT_DIR / "amount_vs_timestamp.png"
     height_plot_path = OUTPUT_DIR / "height_diff_vs_timestamp.png"
@@ -585,6 +797,13 @@ def main():
     plot_height_diff_cdf(all_data, height_cdf_plot_path)
     # Generate separate amount distribution plots for each pair group
     plot_amount_distribution_cdf(all_data, OUTPUT_DIR)
+
+    # Generate time_diff plots if data is available
+    if all_time_data:
+        time_diff_plot_path = OUTPUT_DIR / "time_diff_vs_timestamp.png"
+        time_diff_cdf_plot_path = OUTPUT_DIR / "time_diff_cdf.png"
+        plot_time_diff_vs_timestamp(all_time_data, time_diff_plot_path)
+        plot_time_diff_cdf(all_time_data, time_diff_cdf_plot_path)
 
     print("\nDone!")
 

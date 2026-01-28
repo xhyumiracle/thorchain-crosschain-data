@@ -161,7 +161,7 @@ def write_yaml_file(queries: List[Dict[str, Any]], output_path: Path) -> None:
 
     with open(output_path, "w", encoding="utf-8") as f:
         # Write header comment
-        f.write("# Batch Query File for BlockchainMAS\n")
+        f.write("# Batch Query File\n")
         f.write("# Auto-generated from THORChain ndjson data\n")
         f.write("# Format: Each query has 'query', 'groundtruth', and 'metadata'\n\n")
 
