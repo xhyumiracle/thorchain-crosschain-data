@@ -8,3 +8,6 @@ __pycache__/
 queries/
 archived/
 .cache/
+# Intermediate blockchain transaction data (can be regenerated via script/enrich/)
+blockchain_txs/
+.local
