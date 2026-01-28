@@ -6,7 +6,7 @@ __pycache__/
 # OS
 .DS_Store
 queries/
-archived/
+.archived/
 .cache/
 # Intermediate blockchain transaction data (can be regenerated via script/enrich/)
 blockchain_txs/
