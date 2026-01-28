@@ -41,12 +41,6 @@ uv run python script/process/gen_query.py --batch --input-dir data/thorchain-202
 uv run python script/process/gen_query.py --batch --input-dir data/thorchain-2025 --output-dir queries/thorchain-2025
 ```
 
-Then use with BlockchainMAS:
-```bash
-cd /path/to/BlockchainMAS
-python -m src.main --batch data/thorchain/queries/thorchain-2025-high-fast-mini/BTC-ETH.yaml
-```
-
 ## Data Characteristics
 
 ### Overview
@@ -167,11 +161,9 @@ uv run python script/crawl/wash.py --indir raw/data --outdir data/thorchain-2025
 Filter swap data by amount and time thresholds to create high-quality datasets.
 
 ```bash
-# Edit thresholds in script, then run:
-uv run python script/process/filter_data.py
+# Custom amount thresholds (see script header for examples)
+uv run python script/process/filter_data.py --src-amount-gte-BTC 0.09 --src-amount-gte-ETH 1.9 --src-amount-gte-LTC 2.5 --src-amount-gte-DOGE 1000
 ```
-
-Configuration presets: 0.01%, 0.02%, 0.05%, 0.1% fee rates. See `FILTERING_THRESHOLDS.md` for details.
 
 #### sample_mini.py
 Sample mini dataset from high-fast data for testing.
@@ -194,9 +186,9 @@ uv run python script/process/gen_query.py --batch --input-dir ../../data --outpu
 # uv run python script/process/gen_query.py --batch --input-dir ../../data --output-dir ../../queries --blockchain-txs-dir ../../blockchain_txs
 ```
 
-The generated YAML files can be used with BlockchainMAS:
+The generated YAML files can be used with the system:
 ```bash
-cd /path/to/BlockchainMAS
+cd <project_root>
 python -m src.main --batch data/thorchain/queries/BTC-DOGE.yaml
 ```
 
