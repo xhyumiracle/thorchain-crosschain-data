@@ -96,19 +96,30 @@ Each record has two identifiers: `idx` (dataset-local sequential index starting 
 All pairs filtered with: source tx amount thresholds (≥0.09 BTC / ≥1.9 ETH / ≥2.5 LTC / ≥1000 DOGE) + time constraint (≤30min).
 
 ### Daily Distribution
-![Daily TX Count](png/daily_tx_count.png)
-![Daily Amount](png/daily_amount.png)
+![Daily TX Count - Main Pairs](png/daily_tx_count.png)
+![Daily Amount - Main Pairs](png/daily_amount.png)
+
+<details>
+<summary>📊 LTC Pairs (Click to expand)</summary>
+
+![Daily TX Count - LTC Pairs](png/daily_tx_count_ltc.png)
+![Daily Amount - LTC Pairs](png/daily_amount_ltc.png)
+
+</details>
 
 ### Amount Distribution
 - Amount ranges span multiple orders of magnitude (10³ to 10¹⁰)
 - Each asset shows distinct distribution patterns
-- IN (solid) vs OUT (dashed) amounts show swap behavior
+- IN (solid line in CDF) vs OUT (dashed line in CDF) amounts show swap behavior
 
-| Pair      | Distribution Plot                                             |
-| --------- | ------------------------------------------------------------- |
-| BTC<>ETH  | ![BTC-ETH Amount Distribution](png/amount_dist_BTC-ETH.png)   |
-| BTC<>DOGE | ![BTC-DOGE Amount Distribution](png/amount_dist_BTC-DOGE.png) |
-| ETH<>DOGE | ![ETH-DOGE Amount Distribution](png/amount_dist_ETH-DOGE.png) |
+![Amount Distribution - Main Pairs](png/amount_distribution_cdf.png)
+
+<details>
+<summary>📊 LTC Pairs (Click to expand)</summary>
+
+![Amount Distribution - LTC Pairs](png/amount_distribution_cdf_ltc.png)
+
+</details>
 
 ### Height Diff (Swap Completion Time)
 - Most swaps complete quickly: median 6-26 thorchain blocks depending on pair
@@ -116,14 +127,45 @@ All pairs filtered with: source tx amount thresholds (≥0.09 BTC / ≥1.9 ETH /
 - ~99%+ complete within 1000 blocks
 - Outliers exist up to 24k blocks (ETH→BTC)
 
-![Height Diff CDF](png/height_diff_cdf.png)
+![Height Diff CDF - Main Pairs](png/height_diff_cdf.png)
+![Height Diff vs Timestamp - Main Pairs](png/height_diff_vs_timestamp.png)
+
+<details>
+<summary>📊 LTC Pairs (Click to expand)</summary>
+
+![Height Diff CDF - LTC Pairs](png/height_diff_cdf_ltc.png)
+![Height Diff vs Timestamp - LTC Pairs](png/height_diff_vs_timestamp_ltc.png)
+
+</details>
+
+### Time Diff (Blockchain Timestamps)
+- Time difference calculated from actual blockchain transaction timestamps
+- Provides real-world completion time in seconds (vs THORChain blocks)
+- Shows directional asymmetry: BTC→DOGE (~177s) vs DOGE→BTC (~762s)
+- Most swaps complete within 500 seconds
+
+![Time Diff CDF - Main Pairs](png/time_diff_cdf.png)
+![Time Diff vs Timestamp - Main Pairs](png/time_diff_vs_timestamp.png)
+
+<details>
+<summary>📊 LTC Pairs (Click to expand)</summary>
+
+![Time Diff CDF - LTC Pairs](png/time_diff_cdf_ltc.png)
+![Time Diff vs Timestamp - LTC Pairs](png/time_diff_vs_timestamp_ltc.png)
+
+</details>
+
+### Time-Amount Relationship
+- Visualization of time difference vs transaction amount across all pairs
+- High-Fast (HF) dataset thresholds shown as reference lines
+- Helps understand the characteristics of filtered datasets
+
+![Time-Amount All Pairs](png/time_amount_all_pairs.png)
 
 ### Traffic Spikes
 - 2025-02-22~03-03: Major spike in ETH→BTC (~10 days, tx count surged from ~100/day to 1000-2000/day, daily amount jumped from ~100 ETH to 20,000-85,000 ETH), related to **Bybit hack** fund flows
 - 2025-03-14~15: Abnormal spike in BTC<>ETH (1800+ tx/day, height diff up to 5000+ blocks)
 - 2025-06: Another spike (~1100 tx/day, height diff up to 3000+ blocks)
-
-![Height Diff vs Timestamp](png/height_diff_vs_timestamp.png)
 
 
 ## Scripts
