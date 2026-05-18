@@ -3,101 +3,46 @@
 Filter THORChain swap data with flexible filtering options.
 
 Supports filtering by:
-- Amount (using level = 1/fee_rate)
+- Amount (custom thresholds per asset)
 - Height diff (THORChain blocks)
 - Time diff (real blockchain time, requires blockchain_txs/)
 - Date range
 
 Usage:
-    # Amount only (high value)
+    # Custom amount thresholds
+    python script/process/filter_data.py --src-amount-gte-BTC 0.05 --src-amount-gte-ETH 1.2 --src-amount-gte-LTC 2.0 --src-amount-gte-DOGE 950
+    # Output: thorchain-2025-amt-custom
+
+    # Amount + time diff
+    python script/process/filter_data.py --src-amount-gte-BTC 0.05 --src-amount-gte-ETH 1.2 --time-diff-lte 30
+    # Output: thorchain-2025-amt-custom-dtlt30
+
+    # Legacy level-based filtering (deprecated but still supported)
     python script/process/filter_data.py --amount-level-gte 10
     # Output: thorchain-2025-amtgte10
-
-    # Amount + time diff (most common)
-    python script/process/filter_data.py --amount-level-gte 10 --time-diff-lte 30
-    # Output: thorchain-2025-amtgte10-dtlt30
-
-    # Identify slow swaps
-    python script/process/filter_data.py --height-diff-gte 5000 --start-date 2025-03-01 --end-date 2025-03-31
-    # Output: thorchain-2025-dhgt5000
 """
 
 import json
 import argparse
+import sys
 from pathlib import Path
 from datetime import datetime
 from collections import defaultdict
 
+# Import shared blockchain utilities
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from utils.blockchain import load_blockchain_txs, get_tx_timestamp
+
+# Supported chains for time-based filtering
+SUPPORTED_CHAINS = ["BTC", "ETH", "DOGE", "LTC"]
+
 # Amount level to threshold mapping (level = 1/fee_rate)
 AMOUNT_LEVEL_TO_THRESHOLDS = {
-    10: {"BTC": 10_000_000, "ETH": 200_000_000, "DOGE": 100_000_000_000},           # 0.1 BTC, 2.0 ETH, 1k DOGE
-    20: {"BTC": 20_000_000, "ETH": 400_000_000, "DOGE": 200_000_000_000},           # 0.2 BTC, 4.0 ETH, 2k DOGE
-    50: {"BTC": 50_000_000, "ETH": 1_000_000_000, "DOGE": 500_000_000_000},         # 0.5 BTC, 10.0 ETH, 5k DOGE
-    100: {"BTC": 100_000_000, "ETH": 2_000_000_000, "DOGE": 1_000_000_000_000},     # 1.0 BTC, 20.0 ETH, 10k DOGE
+    10: {"BTC": 10_000_000, "ETH": 200_000_000, "DOGE": 100_000_000_000, "LTC": 400_000_000},           # 0.1 BTC, 2.0 ETH, 1k DOGE, 4.0 LTC
+    20: {"BTC": 20_000_000, "ETH": 400_000_000, "DOGE": 200_000_000_000, "LTC": 800_000_000},           # 0.2 BTC, 4.0 ETH, 2k DOGE, 8.0 LTC
+    50: {"BTC": 50_000_000, "ETH": 1_000_000_000, "DOGE": 500_000_000_000, "LTC": 2_000_000_000},       # 0.5 BTC, 10.0 ETH, 5k DOGE, 20.0 LTC
+    100: {"BTC": 100_000_000, "ETH": 2_000_000_000, "DOGE": 1_000_000_000_000, "LTC": 4_000_000_000},   # 1.0 BTC, 20.0 ETH, 10k DOGE, 40.0 LTC
 }
-
-
-def load_blockchain_txs(blockchain_tx_dir: Path, chain: str) -> dict:
-    """Load blockchain transaction data from ndjson file.
-
-    Each line contains raw Blockchair API response with structure:
-    {
-        "transaction": {...},
-        "inputs": [...],  # UTXO chains only
-        "outputs": [...],  # UTXO chains only
-        "_original_txid": "..."  # Original txid from THORChain data
-    }
-    """
-    tx_file = blockchain_tx_dir / f"{chain.lower()}.ndjson"
-
-    if not tx_file.exists():
-        return {}
-
-    txs = {}
-    with open(tx_file, 'r') as f:
-        for line in f:
-            tx_data = json.loads(line.strip())
-
-            # Use original txid as key (without 0x prefix for consistency)
-            txid = tx_data.get('_original_txid')
-            if not txid:
-                # Fallback: extract from transaction object
-                tx_info = tx_data.get('transaction', {})
-                txid = tx_info.get('hash', '').replace('0x', '').upper()
-
-            if txid:
-                txs[txid.upper()] = tx_data
-
-    return txs
-
-
-def get_tx_timestamp(tx_data: dict) -> int | None:
-    """Extract Unix timestamp from Blockchair API response.
-
-    Blockchair returns time as:
-    - UTXO chains: "time": 1234567890 (Unix timestamp int)
-    - Account chains: "time": "2025-12-31 20:10:59" (UTC string)
-    """
-    tx_info = tx_data.get('transaction', {})
-    time_val = tx_info.get('time')
-
-    if time_val is None:
-        return None
-
-    # If already int, return directly
-    if isinstance(time_val, int):
-        return time_val
-
-    # If string, parse ISO format
-    if isinstance(time_val, str):
-        from datetime import datetime
-        try:
-            dt = datetime.fromisoformat(time_val.replace("Z", "+00:00"))
-            return int(dt.timestamp())
-        except (ValueError, AttributeError):
-            return None
-
-    return None
 
 
 def get_record_datetime(record: dict) -> datetime | None:
@@ -279,10 +224,12 @@ def filter_file(
     """Filter a single ndjson file and return statistics."""
     counts = {'total': 0, 'kept': 0}
     metric_values = []  # For storing height_diff or time_diff values
+    kept_records = []  # Store records that pass filters
 
     output_file.parent.mkdir(parents=True, exist_ok=True)
 
-    with open(input_file, 'r') as f_in, open(output_file, 'w') as f_out:
+    # First pass: filter records
+    with open(input_file, 'r') as f_in:
         for line in f_in:
             line = line.strip()
             if not line:
@@ -310,13 +257,23 @@ def filter_file(
 
             if passes:
                 counts['kept'] += 1
-                f_out.write(line + '\n')
+                kept_records.append(record)
 
                 # Collect metric values
                 if 'height_diff' in stats and stats['height_diff'] is not None:
                     metric_values.append(stats['height_diff'])
                 elif 'time_diff' in stats and stats['time_diff'] is not None:
                     metric_values.append(stats['time_diff'])
+
+    # Second pass: write with updated idx
+    with open(output_file, 'w') as f_out:
+        for idx, record in enumerate(kept_records):
+            # Update idx field at the beginning
+            record_with_idx = {"idx": idx}
+            # Remove old idx if exists, then update with record
+            record_without_idx = {k: v for k, v in record.items() if k != "idx"}
+            record_with_idx.update(record_without_idx)
+            f_out.write(json.dumps(record_with_idx, ensure_ascii=False) + '\n')
 
     counts['metric_values'] = metric_values
     return counts
@@ -325,6 +282,7 @@ def filter_file(
 def build_output_dir_name(
     base_name: str,
     amount_level: int | None,
+    amount_thresholds: dict | None,
     amount_gte: bool,
     height_diff_threshold: int | None,
     height_diff_gte: bool,
@@ -334,11 +292,16 @@ def build_output_dir_name(
     """Build output directory name based on filters."""
     parts = [base_name]
 
+    # Amount filter naming
     if amount_level is not None:
+        # Legacy level-based naming
         if amount_gte:
             parts.append(f"amtgte{amount_level}")
         else:
             parts.append(f"amtlte{amount_level}")
+    elif amount_thresholds is not None:
+        # Custom threshold naming
+        parts.append("amt-custom")
 
     if height_diff_threshold is not None:
         if height_diff_gte:
@@ -358,11 +321,21 @@ def build_output_dir_name(
 def main():
     parser = argparse.ArgumentParser(description="Filter THORChain swap data")
 
-    # Amount filters
+    # Amount filters - Custom thresholds per asset (in human-readable units)
+    parser.add_argument("--src-amount-gte-BTC", type=float,
+                        help="Source amount >= threshold for BTC (e.g., 0.05 for 0.05 BTC)")
+    parser.add_argument("--src-amount-gte-ETH", type=float,
+                        help="Source amount >= threshold for ETH (e.g., 1.2 for 1.2 ETH)")
+    parser.add_argument("--src-amount-gte-LTC", type=float,
+                        help="Source amount >= threshold for LTC (e.g., 2.0 for 2.0 LTC)")
+    parser.add_argument("--src-amount-gte-DOGE", type=float,
+                        help="Source amount >= threshold for DOGE (e.g., 950 for 950 DOGE)")
+
+    # Legacy amount filters (kept for backward compatibility)
     parser.add_argument("--amount-level-gte", type=int, choices=[10, 20, 50, 100],
-                        help="Amount >= level threshold (10, 20, 50, 100)")
+                        help="[Legacy] Amount >= level threshold (10, 20, 50, 100)")
     parser.add_argument("--amount-level-lte", type=int, choices=[10, 20, 50, 100],
-                        help="Amount <= level threshold (10, 20, 50, 100)")
+                        help="[Legacy] Amount <= level threshold (10, 20, 50, 100)")
 
     # Height diff filters
     parser.add_argument("--height-diff-lte", type=int,
@@ -398,9 +371,19 @@ def main():
     if args.time_diff_gte and args.time_diff_lte:
         parser.error("Cannot specify both --time-diff-gte and --time-diff-lte")
 
+    # Validate: Cannot mix custom thresholds with level-based thresholds
+    has_custom_threshold = any([
+        args.src_amount_gte_BTC, args.src_amount_gte_ETH,
+        args.src_amount_gte_LTC, args.src_amount_gte_DOGE,
+    ])
+    has_level_threshold = args.amount_level_gte or args.amount_level_lte
+
+    if has_custom_threshold and has_level_threshold:
+        parser.error("Cannot mix custom amount thresholds (--src-amount-gte-*) with legacy level thresholds (--amount-level-*)")
+
     # Validate: At least one filter must be specified
     if not any([
-        args.amount_level_gte, args.amount_level_lte,
+        has_custom_threshold, has_level_threshold,
         args.height_diff_gte, args.height_diff_lte,
         args.time_diff_gte, args.time_diff_lte,
     ]):
@@ -425,8 +408,26 @@ def main():
 
     # Prepare filter parameters
     amount_level = args.amount_level_gte or args.amount_level_lte
-    amount_thresholds = AMOUNT_LEVEL_TO_THRESHOLDS.get(amount_level) if amount_level else None
-    amount_gte = args.amount_level_gte is not None
+
+    # Build custom thresholds if specified (convert from human-readable to 1e8 base units)
+    if has_custom_threshold:
+        amount_thresholds = {}
+        if args.src_amount_gte_BTC is not None:
+            amount_thresholds["BTC"] = int(args.src_amount_gte_BTC * 1e8)
+        if args.src_amount_gte_ETH is not None:
+            amount_thresholds["ETH"] = int(args.src_amount_gte_ETH * 1e8)
+        if args.src_amount_gte_LTC is not None:
+            amount_thresholds["LTC"] = int(args.src_amount_gte_LTC * 1e8)
+        if args.src_amount_gte_DOGE is not None:
+            amount_thresholds["DOGE"] = int(args.src_amount_gte_DOGE * 1e8)
+        amount_gte = True  # Custom thresholds are always >= filters
+    elif amount_level:
+        # Use legacy level-based thresholds
+        amount_thresholds = AMOUNT_LEVEL_TO_THRESHOLDS.get(amount_level)
+        amount_gte = args.amount_level_gte is not None
+    else:
+        amount_thresholds = None
+        amount_gte = True
 
     height_diff_threshold = args.height_diff_gte or args.height_diff_lte
     height_diff_gte = args.height_diff_gte is not None
@@ -442,6 +443,7 @@ def main():
         output_dir_name = build_output_dir_name(
             "thorchain-2025",
             amount_level,
+            amount_thresholds if has_custom_threshold else None,
             amount_gte,
             height_diff_threshold,
             height_diff_gte,
@@ -472,19 +474,15 @@ def main():
             exit(1)
 
         print("Loading blockchain transaction data...")
-        blockchain_txs = {}
+        blockchain_txs = load_blockchain_txs(blockchain_tx_dir, SUPPORTED_CHAINS)
         missing_data = []
 
-        for asset in ["BTC", "ETH", "DOGE"]:
-            print(f"  Loading {asset}...", end=" ", flush=True)
-            txs = load_blockchain_txs(blockchain_tx_dir, asset)
-            blockchain_txs[asset] = txs
-
-            if not txs:
-                missing_data.append(asset)
-                print(f"⚠ MISSING")
+        for asset in SUPPORTED_CHAINS:
+            if asset in blockchain_txs:
+                print(f"  Loading {asset}... ✓ {len(blockchain_txs[asset]):,} transactions")
             else:
-                print(f"✓ {len(txs):,} transactions")
+                missing_data.append(asset)
+                print(f"  Loading {asset}... ⚠ MISSING")
 
         if missing_data:
             print(f"\n{'='*70}")
@@ -511,10 +509,24 @@ def main():
 
     if amount_thresholds:
         op = ">=" if amount_gte else "<="
-        print(f"  Amount {op} level {amount_level}:")
-        print(f"    BTC {op} {amount_thresholds['BTC']/1e8:.1f}")
-        print(f"    ETH {op} {amount_thresholds['ETH']/1e8:.1f}")
-        print(f"    DOGE {op} {amount_thresholds['DOGE']/1e8:.0f}")
+        if has_custom_threshold:
+            print(f"  Amount {op} (custom thresholds):")
+            for asset in ["BTC", "ETH", "LTC", "DOGE"]:
+                if asset in amount_thresholds:
+                    value = amount_thresholds[asset] / 1e8
+                    if asset == "DOGE":
+                        print(f"    {asset} {op} {value:.0f}")
+                    else:
+                        print(f"    {asset} {op} {value:.4g}")
+        else:
+            print(f"  Amount {op} level {amount_level}:")
+            for asset in ["BTC", "ETH", "LTC", "DOGE"]:
+                if asset in amount_thresholds:
+                    value = amount_thresholds[asset] / 1e8
+                    if asset == "DOGE":
+                        print(f"    {asset} {op} {value:.0f}")
+                    else:
+                        print(f"    {asset} {op} {value:.1f}")
 
     if height_diff_threshold:
         op = ">=" if height_diff_gte else "<="
