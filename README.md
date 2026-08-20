@@ -50,6 +50,8 @@ This repository contains the Thor25 dataset released with *LOCARD: An Agentic Fr
 Thor25 supports research on agentic blockchain forensics, cross-chain transaction tracing, and evidence-grounded tool use by LLM agents. It does not map cleanly to conventional NLP task categories such as question answering or text generation: solving each benchmark case requires an agent to iteratively interact with blockchain data and investigative tools in a real blockchain environment.
 
 - Paper DOI: https://doi.org/10.1109/ICBC67748.2026.11575479
+- Hugging Face paper page: https://huggingface.co/papers/2604.04211
+- arXiv: https://arxiv.org/abs/2604.04211
 - Hugging Face dataset: https://huggingface.co/datasets/xhyumiracle/thor25
 - LOCARD code: https://github.com/xhyumiracle/locard
 
