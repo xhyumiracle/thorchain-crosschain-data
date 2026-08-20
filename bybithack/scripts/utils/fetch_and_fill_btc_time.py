@@ -8,7 +8,7 @@ This script:
 1. Reads thor_crosschain_links from eth_partial_a5a023_populated.json
 2. Collects all BTC out txids
 3. Fetches blockchain tx data via Blockchair API
-4. Saves to blockchain_txs/btc_bybithack.ndjson
+4. Saves to blockchain_txs/btc_bybithack.jsonl
 5. Updates out.timestamp and out.time in the JSON
 
 Usage:
@@ -33,7 +33,7 @@ DATA_DIR = BYBITHACK_DIR / "data"
 BLOCKCHAIN_TXS_DIR = BYBITHACK_DIR.parent / "blockchain_txs"
 
 JSON_FILE = DATA_DIR / "partial_a5a023_eth_raw.json"
-BTC_OUTPUT_FILE = BLOCKCHAIN_TXS_DIR / "btc_bybithack.ndjson"
+BTC_OUTPUT_FILE = BLOCKCHAIN_TXS_DIR / "btc_bybithack.jsonl"
 FINAL_OUTPUT_FILE = DATA_DIR / "partial_a5a023_eth_raw.json"
 
 
@@ -67,7 +67,7 @@ def collect_btc_txids(json_file: Path) -> list[str]:
 
 def fetch_btc_transactions(txids: list[str], output_file: Path) -> dict[str, dict]:
     """
-    Fetch BTC transaction data and save to ndjson file.
+    Fetch BTC transaction data and save to jsonl file.
 
     Returns dict mapping txid (uppercase) -> tx_data
     """
@@ -135,7 +135,7 @@ def fetch_btc_transactions(txids: list[str], output_file: Path) -> dict[str, dic
 
 
 def load_blockchain_txs(blockchain_txs_file: Path) -> dict[str, dict]:
-    """Load blockchain transactions from ndjson file."""
+    """Load blockchain transactions from jsonl file."""
     tx_map = {}
 
     if not blockchain_txs_file.exists():

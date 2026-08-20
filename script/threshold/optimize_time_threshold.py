@@ -3,7 +3,7 @@
 Find optimal time thresholds for all trading pairs
 to reach exactly 100 records while maintaining amount >= level 10.
 
-Automatically scans all *.ndjson files in the data directory.
+Automatically scans all *.jsonl files in the data directory.
 
 This script analyzes data WITHOUT modifying source files.
 """
@@ -208,7 +208,7 @@ def main():
 
     # Analyze all trading pairs
     print(f"\nScanning for trading pairs in {DATA_DIR}...")
-    pair_files = sorted(DATA_DIR.glob("*.ndjson"))
+    pair_files = sorted(DATA_DIR.glob("*.jsonl"))
     results = []
 
     for pair_file in pair_files:

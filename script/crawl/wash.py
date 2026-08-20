@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Thorchain data washer: transforms raw ndjson/json files into cleaned format.
+Thorchain data washer: transforms raw jsonl/json files into cleaned format.
 
 Usage:
     python thorchain_wash.py --indir data/thorchain/raw --outdir data/thorchain/data
@@ -138,15 +138,15 @@ def transform_record(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 def get_output_filename(record: Dict[str, Any]) -> Optional[str]:
     """
     Determine output filename based on in/out chains.
-    Format: {in_chain}-{out_chain}.ndjson
+    Format: {in_chain}-{out_chain}.jsonl
 
     Special cases (in priority order):
-    - {in_chain}-{out_chain}-multi-in.ndjson: multiple in entries
-    - {in_chain}-{out_chain}-multi-out.ndjson: multiple out entries
-    - {in_chain}-{out_chain}-multi-in-out.ndjson: both multiple in and multiple out
-    - {in_chain}-{out_chain}-multi-coins-in.ndjson: single in entry but with >1 coins (same txID)
-    - {in_chain}-{out_chain}-multi-coins-out.ndjson: single out entry but with >1 coins (same txID)
-    - {in_chain}-{out_chain}-multi-coins-in-out.ndjson: both in and out have >1 coins per entry
+    - {in_chain}-{out_chain}-multi-in.jsonl: multiple in entries
+    - {in_chain}-{out_chain}-multi-out.jsonl: multiple out entries
+    - {in_chain}-{out_chain}-multi-in-out.jsonl: both multiple in and multiple out
+    - {in_chain}-{out_chain}-multi-coins-in.jsonl: single in entry but with >1 coins (same txID)
+    - {in_chain}-{out_chain}-multi-coins-out.jsonl: single out entry but with >1 coins (same txID)
+    - {in_chain}-{out_chain}-multi-coins-in-out.jsonl: both in and out have >1 coins per entry
     """
     in_list = record.get("in", []) or []
     out_list = record.get("out", []) or []
@@ -179,13 +179,13 @@ def get_output_filename(record: Dict[str, Any]) -> Optional[str]:
     # Priority 1: multi-in / multi-out (multiple entries)
     if multi_in and multi_out:
         print(f"[WARN] Multi-in AND multi-out: id={record_id}")
-        return f"{pair_prefix}-multi-in-out.ndjson"
+        return f"{pair_prefix}-multi-in-out.jsonl"
     elif multi_in:
         print(f"[WARN] Multi-in: id={record_id}")
-        return f"{pair_prefix}-multi-in.ndjson"
+        return f"{pair_prefix}-multi-in.jsonl"
     elif multi_out:
         print(f"[WARN] Multi-out: id={record_id}")
-        return f"{pair_prefix}-multi-out.ndjson"
+        return f"{pair_prefix}-multi-out.jsonl"
 
     # Priority 2: multi-coins (single entry but with >1 coins, detected by same txID)
     # Count entries per txID for in list
@@ -204,21 +204,21 @@ def get_output_filename(record: Dict[str, Any]) -> Optional[str]:
 
     if multi_coins_in and multi_coins_out:
         print(f"[WARN] Multi-coins-in AND multi-coins-out: id={record_id}")
-        return f"{pair_prefix}-multi-coins-in-out.ndjson"
+        return f"{pair_prefix}-multi-coins-in-out.jsonl"
     elif multi_coins_in:
         print(f"[WARN] Multi-coins-in: id={record_id}")
-        return f"{pair_prefix}-multi-coins-in.ndjson"
+        return f"{pair_prefix}-multi-coins-in.jsonl"
     elif multi_coins_out:
         print(f"[WARN] Multi-coins-out: id={record_id}")
-        return f"{pair_prefix}-multi-coins-out.ndjson"
+        return f"{pair_prefix}-multi-coins-out.jsonl"
 
     # Normal case: single in, single out
-    return f"{pair_prefix}.ndjson"
+    return f"{pair_prefix}.jsonl"
 
 
 def process_file(filepath: Path) -> List[tuple[str, Dict[str, Any]]]:
     """
-    Process a single json/ndjson file.
+    Process a single json/jsonl file.
     Returns list of (output_filename, transformed_record) tuples.
     """
     results: List[tuple[str, Dict[str, Any]]] = []
@@ -240,19 +240,19 @@ def process_file(filepath: Path) -> List[tuple[str, Dict[str, Any]]]:
             # JSON array
             records = json.loads(content)
         elif content.startswith("{"):
-            # Could be single JSON object or ndjson
+            # Could be single JSON object or jsonl
             # First try parsing as single object
             try:
                 obj = json.loads(content)
                 records = [obj]
             except json.JSONDecodeError:
-                # Try ndjson (each line is a JSON object)
+                # Try jsonl (each line is a JSON object)
                 for line in content.split("\n"):
                     line = line.strip()
                     if line:
                         records.append(json.loads(line))
         else:
-            # Assume ndjson
+            # Assume jsonl
             for line in content.split("\n"):
                 line = line.strip()
                 if line:
@@ -277,7 +277,7 @@ def process_file(filepath: Path) -> List[tuple[str, Dict[str, Any]]]:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Transform raw Thorchain data to cleaned format")
-    ap.add_argument("--indir", type=str, required=True, help="Input directory with raw ndjson/json files")
+    ap.add_argument("--indir", type=str, required=True, help="Input directory with raw jsonl/json files")
     ap.add_argument("--outdir", type=str, default="data/thorchain/data", help="Output directory for standard records")
     ap.add_argument("--multi-outdir", type=str, default="data/thorchain-2025-multi", help="Output directory for multi-* records")
     ap.add_argument("--dry-run", action="store_true", help="Print output without writing files")
@@ -294,11 +294,11 @@ def main() -> None:
         outdir.mkdir(parents=True, exist_ok=True)
         multi_outdir.mkdir(parents=True, exist_ok=True)
 
-    # Collect all json/ndjson files
-    files = list(indir.glob("**/*.json")) + list(indir.glob("**/*.ndjson"))
+    # Collect all json/jsonl files
+    files = list(indir.glob("**/*.json")) + list(indir.glob("**/*.jsonl"))
 
     if not files:
-        print(f"[WARN] No json/ndjson files found in {indir}")
+        print(f"[WARN] No json/jsonl files found in {indir}")
         return
 
     print(f"[INFO] Found {len(files)} files to process")

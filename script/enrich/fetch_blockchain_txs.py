@@ -5,7 +5,7 @@ This script:
 1. Reads from amount-filtered dataset (default: thorchain-2025-amtgte10/)
 2. Collects unique transaction IDs per chain
 3. Batch fetches blockchain tx data via Blockchair API
-4. Saves to blockchain_txs/{chain}.ndjson
+4. Saves to blockchain_txs/{chain}.jsonl
 
 Usage:
     # Default (reads from thorchain-2025-amtgte10)
@@ -48,7 +48,7 @@ def normalize_txid(chain: str, txid: str) -> str:
 
 
 def collect_all_txids(input_dir: Path) -> dict[str, set[str]]:
-    """Collect all unique txids per chain from all ndjson files.
+    """Collect all unique txids per chain from all jsonl files.
 
     Groups txids by their actual asset (from the 'asset' field in each entry),
     not by filename pattern.
@@ -58,13 +58,13 @@ def collect_all_txids(input_dir: Path) -> dict[str, set[str]]:
     if not input_dir.exists():
         raise FileNotFoundError(f"Input directory not found: {input_dir}")
 
-    ndjson_files = list(input_dir.glob("*.ndjson"))
-    if not ndjson_files:
-        raise FileNotFoundError(f"No ndjson files found in {input_dir}")
+    jsonl_files = list(input_dir.glob("*.jsonl"))
+    if not jsonl_files:
+        raise FileNotFoundError(f"No jsonl files found in {input_dir}")
 
-    print(f"Collecting txids from {len(ndjson_files)} files...")
+    print(f"Collecting txids from {len(jsonl_files)} files...")
 
-    for file_path in ndjson_files:
+    for file_path in jsonl_files:
         print(f"  Processing {file_path.name}...")
 
         with open(file_path, 'r') as f:
@@ -88,14 +88,14 @@ def collect_all_txids(input_dir: Path) -> dict[str, set[str]]:
 
 
 def load_existing_txids(output_dir: Path) -> dict[str, set[str]]:
-    """Load already-fetched transaction IDs from existing ndjson files."""
+    """Load already-fetched transaction IDs from existing jsonl files."""
     existing = defaultdict(set)
 
     if not output_dir.exists():
         return existing
 
     for asset in CHAIN_MAP.keys():
-        output_file = output_dir / f"{asset.lower()}.ndjson"
+        output_file = output_dir / f"{asset.lower()}.jsonl"
         if not output_file.exists():
             continue
 
@@ -116,12 +116,12 @@ def load_existing_txids(output_dir: Path) -> dict[str, set[str]]:
 
 
 def fetch_and_save_blockchain_txs(txids_by_chain: dict[str, set[str]], existing_txids: dict[str, set[str]]):
-    """Fetch blockchain tx data and append to existing ndjson files (incremental)."""
+    """Fetch blockchain tx data and append to existing jsonl files (incremental)."""
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     for asset, all_txids in txids_by_chain.items():
         chain_name = CHAIN_MAP[asset]
-        output_file = OUTPUT_DIR / f"{asset.lower()}.ndjson"
+        output_file = OUTPUT_DIR / f"{asset.lower()}.jsonl"
 
         # Filter out existing txids (incremental)
         existing = existing_txids.get(asset, set())
@@ -192,7 +192,7 @@ def main():
     """Main execution."""
     parser = argparse.ArgumentParser(description="Fetch blockchain transaction data")
     parser.add_argument("--input-dir", type=str, required=True,
-                        help="Input directory containing amount-filtered ndjson files")
+                        help="Input directory containing amount-filtered jsonl files")
     parser.add_argument("--append", action="store_true",
                         help="Append to existing blockchain_txs data (skip confirmation)")
 
@@ -220,7 +220,7 @@ def main():
 
     # Check if output directory exists and has data
     if OUTPUT_DIR.exists():
-        existing_files = list(OUTPUT_DIR.glob("*.ndjson"))
+        existing_files = list(OUTPUT_DIR.glob("*.jsonl"))
         if existing_files and not args.append:
             print(f"\n{'='*70}")
             print("WARNING: Output directory already contains data!")

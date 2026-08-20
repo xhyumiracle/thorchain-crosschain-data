@@ -5,7 +5,7 @@
 Generate query YAML files from common ancestor groups.
 
 This script:
-1. Reads common_ancestor_depth_N.ndjson files from data/
+1. Reads common_ancestor_depth_N.jsonl files from data/
 2. Converts each group to a query item
 3. Outputs to queries/common_ancestor_hop_N.yaml
 
@@ -95,7 +95,7 @@ def convert_group_to_query_item(group: Dict) -> Dict:
     Convert a group to a query item.
 
     Args:
-        group: Group data from ndjson
+        group: Group data from jsonl
 
     Returns:
         Query item dict
@@ -112,12 +112,12 @@ def convert_group_to_query_item(group: Dict) -> Dict:
     return query_item
 
 
-def process_ndjson_file(input_file: Path, output_file: Path):
+def process_jsonl_file(input_file: Path, output_file: Path):
     """
-    Process a single ndjson file and generate corresponding yaml.
+    Process a single jsonl file and generate corresponding yaml.
 
     Args:
-        input_file: Path to input ndjson file
+        input_file: Path to input jsonl file
         output_file: Path to output yaml file
     """
     print(f"[INFO] Processing {input_file.name}...")
@@ -154,26 +154,26 @@ def main():
     print("=" * 70)
     print()
 
-    # Find all depth ndjson files in data/
-    ndjson_files = sorted(DATA_DIR.glob("common_ancestor_depth_*.ndjson"))
+    # Find all depth jsonl files in data/
+    jsonl_files = sorted(DATA_DIR.glob("common_ancestor_depth_*.jsonl"))
 
-    if not ndjson_files:
-        print("[ERROR] No common_ancestor_depth_*.ndjson files found in data/")
+    if not jsonl_files:
+        print("[ERROR] No common_ancestor_depth_*.jsonl files found in data/")
         return
 
-    print(f"[INFO] Found {len(ndjson_files)} ndjson files")
+    print(f"[INFO] Found {len(jsonl_files)} jsonl files")
     print()
 
     total_queries = 0
 
-    for ndjson_file in ndjson_files:
+    for jsonl_file in jsonl_files:
         # Extract depth number from filename
-        depth = int(ndjson_file.stem.split('_')[-1])
+        depth = int(jsonl_file.stem.split('_')[-1])
 
         # Output to queries/common_ancestor_hop_N.yaml
         output_file = QUERIES_DIR / f"common_ancestor_hop_{depth}.yaml"
 
-        process_ndjson_file(ndjson_file, output_file)
+        process_jsonl_file(jsonl_file, output_file)
 
         # Count queries in this file
         with open(output_file, 'r') as f:
@@ -183,7 +183,7 @@ def main():
         print()
 
     print("=" * 70)
-    print(f"✓ Generated {total_queries} total query items across {len(ndjson_files)} files")
+    print(f"✓ Generated {total_queries} total query items across {len(jsonl_files)} files")
     print("=" * 70)
 
 

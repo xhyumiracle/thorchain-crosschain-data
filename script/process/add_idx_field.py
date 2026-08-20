@@ -3,7 +3,7 @@
 Add 'idx' field to each record in all datasets.
 
 This is a one-time script that:
-1. Reads all ndjson files from data/ directories
+1. Reads all jsonl files from data/ directories
 2. Adds an 'idx' field (0-indexed, sequential) to each record
 3. Writes to data-idx/ directory with same structure
 4. Validates that no data is lost or added
@@ -21,7 +21,7 @@ DATA_DIRS = None  # Will be populated dynamically
 
 def add_idx_to_dataset(input_dir: Path, output_dir: Path) -> Dict[str, int]:
     """
-    Add idx field to all ndjson files in a dataset directory.
+    Add idx field to all jsonl files in a dataset directory.
 
     Returns dict mapping filename -> record count.
     """
@@ -35,20 +35,20 @@ def add_idx_to_dataset(input_dir: Path, output_dir: Path) -> Dict[str, int]:
     # Create output directory
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Find all ndjson files
-    ndjson_files = sorted(input_dir.glob("*.ndjson"))
+    # Find all jsonl files
+    jsonl_files = sorted(input_dir.glob("*.jsonl"))
 
-    if not ndjson_files:
-        print(f"[SKIP] No ndjson files in {input_dir}")
+    if not jsonl_files:
+        print(f"[SKIP] No jsonl files in {input_dir}")
         return {}
 
     file_counts = {}
 
-    for ndjson_file in ndjson_files:
+    for jsonl_file in jsonl_files:
         records = []
 
         # Read records
-        with open(ndjson_file) as f:
+        with open(jsonl_file) as f:
             for line in f:
                 line = line.strip()
                 if line:
@@ -56,7 +56,7 @@ def add_idx_to_dataset(input_dir: Path, output_dir: Path) -> Dict[str, int]:
                         record = json.loads(line)
                         records.append(record)
                     except json.JSONDecodeError as e:
-                        print(f"[WARN] Failed to parse line in {ndjson_file.name}: {e}")
+                        print(f"[WARN] Failed to parse line in {jsonl_file.name}: {e}")
 
         # Add idx field at the beginning (before 'id')
         for idx, record in enumerate(records):
@@ -66,13 +66,13 @@ def add_idx_to_dataset(input_dir: Path, output_dir: Path) -> Dict[str, int]:
             records[idx] = new_record
 
         # Write to output
-        output_file = output_dir / ndjson_file.name
+        output_file = output_dir / jsonl_file.name
         with open(output_file, "w", encoding="utf-8") as f:
             for record in records:
                 f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
-        file_counts[ndjson_file.name] = len(records)
-        print(f"  {ndjson_file.name}: {len(records)} records")
+        file_counts[jsonl_file.name] = len(records)
+        print(f"  {jsonl_file.name}: {len(records)} records")
 
     return file_counts
 
@@ -93,9 +93,9 @@ def validate_datasets(original_dir: Path, new_dir: Path, dataset_name: str) -> b
         print("[SKIP] Directory does not exist")
         return True
 
-    # Get all ndjson files
-    original_files = {f.name for f in original_dir.glob("*.ndjson")}
-    new_files = {f.name for f in new_dir.glob("*.ndjson")}
+    # Get all jsonl files
+    original_files = {f.name for f in original_dir.glob("*.jsonl")}
+    new_files = {f.name for f in new_dir.glob("*.jsonl")}
 
     # Check file list matches
     if original_files != new_files:

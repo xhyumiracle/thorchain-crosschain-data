@@ -51,7 +51,7 @@ for dataset_dir in "$THORCHAIN_DATA"/thorchain-2025*; do
     matched_txids=()
 
     while IFS= read -r txid; do
-        if grep -qi "$txid" "$dataset_dir"/*.ndjson 2>/dev/null; then
+        if grep -qi "$txid" "$dataset_dir"/*.jsonl 2>/dev/null; then
             match_count=$((match_count + 1))
             matched_txids+=("$txid")
         fi

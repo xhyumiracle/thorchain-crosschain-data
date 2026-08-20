@@ -11,8 +11,8 @@ from pathlib import Path
 DATA_DIR = Path(__file__).parent.parent.parent / "data" / "thorchain-2025"
 
 
-def load_ndjson(filepath: Path) -> list[dict]:
-    """Load records from an ndjson file."""
+def load_jsonl(filepath: Path) -> list[dict]:
+    """Load records from an jsonl file."""
     records = []
     with open(filepath, "r") as f:
         for line in f:
@@ -65,19 +65,19 @@ def print_report(results: list[dict]):
 
 
 def main():
-    # Find all ndjson files
-    ndjson_files = sorted(DATA_DIR.glob("*.ndjson"))
+    # Find all jsonl files
+    jsonl_files = sorted(DATA_DIR.glob("*.jsonl"))
 
-    if not ndjson_files:
-        print(f"No .ndjson files found in {DATA_DIR}")
+    if not jsonl_files:
+        print(f"No .jsonl files found in {DATA_DIR}")
         return
 
-    print(f"Found {len(ndjson_files)} data files in {DATA_DIR}\n")
+    print(f"Found {len(jsonl_files)} data files in {DATA_DIR}\n")
 
     results = []
-    for filepath in ndjson_files:
+    for filepath in jsonl_files:
         print(f"Checking {filepath.name}...")
-        records = load_ndjson(filepath)
+        records = load_jsonl(filepath)
         result = check_duplicates(records, filepath.name)
         results.append(result)
 

@@ -2,13 +2,13 @@
 # -*- coding: utf-8 -*-
 
 """
-Generate YAML batch query files from cleaned ndjson data.
+Generate YAML batch query files from cleaned jsonl data.
 
 Usage:
-    # Generate from a single ndjson file
-    python gen_query.py --input ../../data/BTC-DOGE.ndjson --output ../../queries/BTC-DOGE.yaml
+    # Generate from a single jsonl file
+    python gen_query.py --input ../../data/BTC-DOGE.jsonl --output ../../queries/BTC-DOGE.yaml
 
-    # Generate from all ndjson files (batch mode)
+    # Generate from all jsonl files (batch mode)
     python gen_query.py --batch --input-dir ../../data --output-dir ../../queries
 """
 
@@ -39,7 +39,7 @@ def generate_query_from_record(
     blockchain_txs: Optional[Dict[str, Dict[str, Any]]] = None
 ) -> Dict[str, Any] | None:
     """
-    Generate a query dict from a single ndjson record.
+    Generate a query dict from a single jsonl record.
 
     Args:
         record: THORChain swap record
@@ -123,18 +123,18 @@ def generate_query_from_record(
     return query_item
 
 
-def process_ndjson_file(
-    ndjson_path: Path,
+def process_jsonl_file(
+    jsonl_path: Path,
     blockchain_txs: Optional[Dict[str, Dict[str, Any]]] = None
 ) -> List[Dict[str, Any]]:
     """
-    Process a single ndjson file and generate query items.
+    Process a single jsonl file and generate query items.
 
     Returns list of query items.
     """
     queries = []
 
-    with open(ndjson_path, "r", encoding="utf-8") as f:
+    with open(jsonl_path, "r", encoding="utf-8") as f:
         for line_num, line in enumerate(f, 1):
             line = line.strip()
             if not line:
@@ -143,7 +143,7 @@ def process_ndjson_file(
             try:
                 record = json.loads(line)
             except json.JSONDecodeError as e:
-                print(f"[WARN] Failed to parse line {line_num} in {ndjson_path.name}: {e}")
+                print(f"[WARN] Failed to parse line {line_num} in {jsonl_path.name}: {e}")
                 continue
 
             query_item = generate_query_from_record(record, blockchain_txs)
@@ -162,7 +162,7 @@ def write_yaml_file(queries: List[Dict[str, Any]], output_path: Path) -> None:
     with open(output_path, "w", encoding="utf-8") as f:
         # Write header comment
         f.write("# Batch Query File\n")
-        f.write("# Auto-generated from THORChain ndjson data\n")
+        f.write("# Auto-generated from THORChain jsonl data\n")
         f.write("# Format: Each query has 'query', 'groundtruth', and 'metadata'\n\n")
 
         # Write YAML
@@ -181,10 +181,10 @@ def process_single_file(
     output_path: Path,
     blockchain_txs: Optional[Dict[str, Dict[str, Any]]] = None
 ) -> None:
-    """Process a single ndjson file and generate YAML."""
+    """Process a single jsonl file and generate YAML."""
     print(f"[INFO] Processing {input_path.name}...")
 
-    queries = process_ndjson_file(input_path, blockchain_txs)
+    queries = process_jsonl_file(input_path, blockchain_txs)
 
     if not queries:
         print(f"[WARN] No valid queries generated from {input_path.name}")
@@ -199,29 +199,29 @@ def process_batch(
     output_dir: Path,
     blockchain_txs: Optional[Dict[str, Dict[str, Any]]] = None
 ) -> None:
-    """Process all ndjson files in input_dir and generate YAML files."""
-    # Find all ndjson files
-    ndjson_files = list(input_dir.glob("*.ndjson"))
+    """Process all jsonl files in input_dir and generate YAML files."""
+    # Find all jsonl files
+    jsonl_files = list(input_dir.glob("*.jsonl"))
 
-    if not ndjson_files:
-        print(f"[WARN] No ndjson files found in {input_dir}")
+    if not jsonl_files:
+        print(f"[WARN] No jsonl files found in {input_dir}")
         return
 
     # Filter out multi-* files
     valid_files = []
     skipped_files = []
 
-    for ndjson_path in ndjson_files:
-        if ndjson_path.stem.startswith("multi-"):
-            skipped_files.append(ndjson_path.name)
+    for jsonl_path in jsonl_files:
+        if jsonl_path.stem.startswith("multi-"):
+            skipped_files.append(jsonl_path.name)
         else:
-            valid_files.append(ndjson_path)
+            valid_files.append(jsonl_path)
 
     if skipped_files:
         print(f"[INFO] Skipping {len(skipped_files)} multi-* files: {', '.join(skipped_files)}")
 
     if not valid_files:
-        print(f"[WARN] No valid ndjson files to process (all are multi-* files)")
+        print(f"[WARN] No valid jsonl files to process (all are multi-* files)")
         return
 
     print(f"[INFO] Found {len(valid_files)} valid files to process")
@@ -231,31 +231,31 @@ def process_batch(
 
     # Process each file
     total_queries = 0
-    for ndjson_path in valid_files:
-        output_path = output_dir / f"{ndjson_path.stem}.yaml"
+    for jsonl_path in valid_files:
+        output_path = output_dir / f"{jsonl_path.stem}.yaml"
 
-        queries = process_ndjson_file(ndjson_path, blockchain_txs)
+        queries = process_jsonl_file(jsonl_path, blockchain_txs)
 
         if queries:
             write_yaml_file(queries, output_path)
-            print(f"[INFO] {ndjson_path.name} -> {output_path.name} ({len(queries)} queries)")
+            print(f"[INFO] {jsonl_path.name} -> {output_path.name} ({len(queries)} queries)")
             total_queries += len(queries)
         else:
-            print(f"[WARN] No valid queries from {ndjson_path.name}")
+            print(f"[WARN] No valid queries from {jsonl_path.name}")
 
     print(f"\n[INFO] Done. Total queries generated: {total_queries}")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Generate YAML batch query files from THORChain ndjson data"
+        description="Generate YAML batch query files from THORChain jsonl data"
     )
 
     # Single file mode
     parser.add_argument(
         "--input",
         type=str,
-        help="Input ndjson file path"
+        help="Input jsonl file path"
     )
     parser.add_argument(
         "--output",
@@ -267,13 +267,13 @@ def main() -> None:
     parser.add_argument(
         "--batch",
         action="store_true",
-        help="Batch mode: process all ndjson files in input-dir"
+        help="Batch mode: process all jsonl files in input-dir"
     )
     parser.add_argument(
         "--input-dir",
         type=str,
         default="../../data",
-        help="Input directory containing ndjson files (batch mode)"
+        help="Input directory containing jsonl files (batch mode)"
     )
     parser.add_argument(
         "--output-dir",
@@ -287,7 +287,7 @@ def main() -> None:
         "--blockchain-txs-dir",
         type=str,
         default=None,
-        help="Optional: Directory containing blockchain transaction ndjson files (for timestamp_delta enrichment)"
+        help="Optional: Directory containing blockchain transaction jsonl files (for timestamp_delta enrichment)"
     )
 
     args = parser.parse_args()
@@ -298,7 +298,7 @@ def main() -> None:
         blockchain_tx_dir = Path(args.blockchain_txs_dir)
         if blockchain_tx_dir.exists():
             print(f"[INFO] Loading blockchain transaction data from {blockchain_tx_dir}...")
-            # Load all chains (None = auto-discover all .ndjson files)
+            # Load all chains (None = auto-discover all .jsonl files)
             blockchain_txs = load_blockchain_txs(blockchain_tx_dir, chains=None)
             total_txs = sum(len(txs) for txs in blockchain_txs.values())
             print(f"[INFO] Loaded {total_txs} blockchain transactions from {len(blockchain_txs)} chains")

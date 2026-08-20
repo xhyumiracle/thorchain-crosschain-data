@@ -4,7 +4,7 @@
 """
 Generate state.json for a dataset based on actual data.
 
-This tool scans ndjson files and generates accurate state.json with:
+This tool scans jsonl files and generates accurate state.json with:
 - min/max timestamps from actual data
 - cursors pointing to min timestamp (for backward crawling)
 - statistics
@@ -21,7 +21,7 @@ import time
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from utils import get_min_timestamp_from_ndjson, get_max_timestamp_from_ndjson
+from utils import get_min_timestamp_from_jsonl, get_max_timestamp_from_jsonl
 
 
 def slugify_to_assets(slug: str) -> str:
@@ -29,15 +29,15 @@ def slugify_to_assets(slug: str) -> str:
     Convert slug back to assets format.
     e.g., "BTC.BTC__ETH.ETH" -> "BTC.BTC,ETH.ETH"
     """
-    return slug.replace(".ndjson", "").replace("__", ",")
+    return slug.replace(".jsonl", "").replace("__", ",")
 
 
-def count_lines(ndjson_path: Path) -> int:
-    """Count total lines in ndjson file."""
-    if not ndjson_path.exists():
+def count_lines(jsonl_path: Path) -> int:
+    """Count total lines in jsonl file."""
+    if not jsonl_path.exists():
         return 0
     count = 0
-    with ndjson_path.open("r", encoding="utf-8") as f:
+    with jsonl_path.open("r", encoding="utf-8") as f:
         for line in f:
             if line.strip():
                 count += 1
@@ -48,7 +48,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Generate state.json from actual data"
     )
-    parser.add_argument("--datadir", required=True, help="Data directory containing .ndjson files")
+    parser.add_argument("--datadir", required=True, help="Data directory containing .jsonl files")
     parser.add_argument("--outdir", required=True, help="Output directory for state.json")
     parser.add_argument("--type", default="swap", help="Action type (default: swap)")
     parser.add_argument("--min-ts-global", type=int, default=None, help="Global min_ts boundary (optional)")
@@ -64,13 +64,13 @@ def main() -> None:
     outdir.mkdir(parents=True, exist_ok=True)
     state_path = outdir / "state.json"
 
-    # Find all ndjson files
-    ndjson_files = sorted(datadir.glob("*.ndjson"))
+    # Find all jsonl files
+    jsonl_files = sorted(datadir.glob("*.jsonl"))
 
-    if not ndjson_files:
-        raise SystemExit(f"Error: No .ndjson files found in {datadir}")
+    if not jsonl_files:
+        raise SystemExit(f"Error: No .jsonl files found in {datadir}")
 
-    print(f"[INFO] Generating state.json from {len(ndjson_files)} files")
+    print(f"[INFO] Generating state.json from {len(jsonl_files)} files")
     print(f"[INFO] Data directory: {datadir.resolve()}")
     print(f"[INFO] Output: {state_path.resolve()}")
     print()
@@ -81,17 +81,17 @@ def main() -> None:
     global_min_ts: Optional[int] = None
     global_max_ts: Optional[int] = None
 
-    for ndjson_file in ndjson_files:
-        filename = ndjson_file.name
+    for jsonl_file in jsonl_files:
+        filename = jsonl_file.name
         assets = slugify_to_assets(filename)
         assets_list.append(assets)
 
         print(f"[INFO] Processing: {assets}")
 
         # Get min/max timestamps
-        min_ts = get_min_timestamp_from_ndjson(ndjson_file)
-        max_ts = get_max_timestamp_from_ndjson(ndjson_file)
-        record_count = count_lines(ndjson_file)
+        min_ts = get_min_timestamp_from_jsonl(jsonl_file)
+        max_ts = get_max_timestamp_from_jsonl(jsonl_file)
+        record_count = count_lines(jsonl_file)
 
         if min_ts is None or max_ts is None:
             print(f"  [WARN] No valid timestamps found, skipping")

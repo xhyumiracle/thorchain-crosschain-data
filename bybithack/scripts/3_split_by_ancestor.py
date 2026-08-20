@@ -8,7 +8,7 @@ This script:
 1. Reads partial_a5a023_eth_raw.json
 2. For each crosschain link, traces back through the corresponding path
 3. Groups endpoints by common ancestors at different depths
-4. Outputs to common_ancestor_depth_N.ndjson files
+4. Outputs to common_ancestor_depth_N.jsonl files
 
 Usage:
     uv run python split_by_ancestor.py [--max-depth N] [--amount-threshold X]
@@ -362,7 +362,7 @@ def main():
         if not groups:
             continue
 
-        output_file = OUTPUT_DIR / f"common_ancestor_depth_{depth}.ndjson"
+        output_file = OUTPUT_DIR / f"common_ancestor_depth_{depth}.jsonl"
 
         with open(output_file, 'w') as f:
             for group in groups:

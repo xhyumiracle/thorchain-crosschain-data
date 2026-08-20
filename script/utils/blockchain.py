@@ -12,12 +12,12 @@ from datetime import datetime
 
 def load_blockchain_txs(blockchain_tx_dir: Path, chains: list[str] | None = None) -> dict[str, dict]:
     """
-    Load blockchain transaction data from ndjson files.
+    Load blockchain transaction data from jsonl files.
 
     Args:
         blockchain_tx_dir: Directory containing blockchain tx files
         chains: List of chain names (e.g., ['BTC', 'ETH', 'DOGE']).
-                If None, loads all *.ndjson files in the directory.
+                If None, loads all *.jsonl files in the directory.
 
     Returns:
         Dict mapping chain -> (txid -> tx_data)
@@ -29,12 +29,12 @@ def load_blockchain_txs(blockchain_tx_dir: Path, chains: list[str] | None = None
 
     blockchain_txs = {}
 
-    # If chains not specified, find all ndjson files
+    # If chains not specified, find all jsonl files
     if chains is None:
-        chains = [f.stem.upper() for f in blockchain_tx_dir.glob("*.ndjson")]
+        chains = [f.stem.upper() for f in blockchain_tx_dir.glob("*.jsonl")]
 
     for chain in chains:
-        tx_file = blockchain_tx_dir / f"{chain.lower()}.ndjson"
+        tx_file = blockchain_tx_dir / f"{chain.lower()}.jsonl"
         if not tx_file.exists():
             continue
 

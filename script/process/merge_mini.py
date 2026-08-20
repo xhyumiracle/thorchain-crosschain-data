@@ -13,7 +13,7 @@ EXISTING_DIR = Path("data/thorchain-2025-high-fast-mini")
 NEW_DIR = Path("data/thorchain-2025-high-fast-mini-temp")
 
 def main():
-    new_files = sorted(NEW_DIR.glob("*.ndjson"))
+    new_files = sorted(NEW_DIR.glob("*.jsonl"))
 
     if not new_files:
         print(f"No files in {NEW_DIR}")

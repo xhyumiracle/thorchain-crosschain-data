@@ -94,8 +94,8 @@ def get_pair_style(pair_name: str) -> tuple[str, str]:
 PAIR_STYLES = {pair: get_pair_style(pair) for pair in PAIR_LABELS.keys()}
 
 
-def load_ndjson(filepath: Path) -> list[dict]:
-    """Load records from an ndjson file."""
+def load_jsonl(filepath: Path) -> list[dict]:
+    """Load records from an jsonl file."""
     records = []
     with open(filepath, "r") as f:
         for line in f:
@@ -167,13 +167,13 @@ def plot_amount_vs_timestamp(all_data: dict[str, tuple], output_path: Path):
         ax = axes[idx]
 
         # Plot pair1
-        key1 = f"{pair1}.ndjson"
+        key1 = f"{pair1}.jsonl"
         if key1 in all_data:
             timestamps, in_amounts, _, _ = all_data[key1]
             scatter_pair(ax, timestamps, in_amounts, pair1)
 
         # Plot pair2
-        key2 = f"{pair2}.ndjson"
+        key2 = f"{pair2}.jsonl"
         if key2 in all_data:
             timestamps, in_amounts, _, _ = all_data[key2]
             scatter_pair(ax, timestamps, in_amounts, pair2)
@@ -207,13 +207,13 @@ def plot_height_diff_vs_timestamp(all_data: dict[str, tuple], output_path: Path)
         ax = axes[idx]
 
         # Plot pair1
-        key1 = f"{pair1}.ndjson"
+        key1 = f"{pair1}.jsonl"
         if key1 in all_data:
             timestamps, _, _, height_diffs = all_data[key1]
             scatter_pair(ax, timestamps, height_diffs, pair1)
 
         # Plot pair2
-        key2 = f"{pair2}.ndjson"
+        key2 = f"{pair2}.jsonl"
         if key2 in all_data:
             timestamps, _, _, height_diffs = all_data[key2]
             scatter_pair(ax, timestamps, height_diffs, pair2)
@@ -268,7 +268,7 @@ def plot_daily_tx_count(all_data: dict[str, tuple], output_path: Path):
         ax = axes[idx]
 
         # Plot pair1
-        key1 = f"{pair1}.ndjson"
+        key1 = f"{pair1}.jsonl"
         if key1 in all_data:
             timestamps, in_amounts, _, _ = all_data[key1]
             dates, tx_counts, _ = aggregate_daily(timestamps, in_amounts)
@@ -277,7 +277,7 @@ def plot_daily_tx_count(all_data: dict[str, tuple], output_path: Path):
             ax.bar(dates, tx_counts, label=label1, alpha=0.7, color=color, width=0.4)
 
         # Plot pair2
-        key2 = f"{pair2}.ndjson"
+        key2 = f"{pair2}.jsonl"
         if key2 in all_data:
             timestamps, in_amounts, _, _ = all_data[key2]
             dates, tx_counts, _ = aggregate_daily(timestamps, in_amounts)
@@ -316,7 +316,7 @@ def plot_daily_amount(all_data: dict[str, tuple], output_path: Path):
         ax = axes[idx]
 
         # Plot pair1
-        key1 = f"{pair1}.ndjson"
+        key1 = f"{pair1}.jsonl"
         if key1 in all_data:
             timestamps, in_amounts, _, _ = all_data[key1]
             dates, _, total_amounts = aggregate_daily(timestamps, in_amounts)
@@ -325,7 +325,7 @@ def plot_daily_amount(all_data: dict[str, tuple], output_path: Path):
             ax.bar(dates, total_amounts, label=label1, alpha=0.7, color=color, width=0.4)
 
         # Plot pair2
-        key2 = f"{pair2}.ndjson"
+        key2 = f"{pair2}.jsonl"
         if key2 in all_data:
             timestamps, in_amounts, _, _ = all_data[key2]
             dates, _, total_amounts = aggregate_daily(timestamps, in_amounts)
@@ -383,7 +383,7 @@ def plot_amount_distribution_cdf_single_pair(all_data: dict[str, tuple], output_
         ax_left = axes[idx]
         ax_right = ax_left.twinx()  # Create right Y-axis for CDF
 
-        key = f"{pair_name}.ndjson"
+        key = f"{pair_name}.jsonl"
         if key not in all_data:
             continue
 
@@ -510,7 +510,7 @@ def plot_height_diff_cdf(all_data: dict[str, tuple], output_path: Path, max_x: i
         ax_right = ax_left.twinx()  # Create right Y-axis for CDF
 
         for i, pair_name in enumerate([pair1, pair2]):
-            key = f"{pair_name}.ndjson"
+            key = f"{pair_name}.jsonl"
             if key not in all_data:
                 continue
 
@@ -643,7 +643,7 @@ def plot_time_diff_vs_timestamp(all_time_data: dict[str, tuple], output_path: Pa
         has_data = False
 
         for pair_name in [pair1, pair2]:
-            key = f"{pair_name}.ndjson"
+            key = f"{pair_name}.jsonl"
             if key in all_time_data:
                 timestamps, time_diffs = all_time_data[key]
                 if len(timestamps) > 0:
@@ -679,7 +679,7 @@ def plot_time_diff_cdf(all_time_data: dict[str, tuple], output_path: Path, max_x
     all_max_vals = []
     for pair1, pair2, _ in MAIN_PAIR_GROUPS:
         for pair_name in [pair1, pair2]:
-            key = f"{pair_name}.ndjson"
+            key = f"{pair_name}.jsonl"
             if key in all_time_data:
                 timestamps, time_diffs = all_time_data[key]
                 if len(time_diffs) > 0:
@@ -704,7 +704,7 @@ def plot_time_diff_cdf(all_time_data: dict[str, tuple], output_path: Path, max_x
         ax_right = ax_left.twinx()
 
         for i, pair_name in enumerate([pair1, pair2]):
-            key = f"{pair_name}.ndjson"
+            key = f"{pair_name}.jsonl"
             if key not in all_time_data:
                 continue
 
@@ -758,25 +758,25 @@ def plot_time_diff_cdf(all_time_data: dict[str, tuple], output_path: Path, max_x
 
 
 def main():
-    # Find all non-multi-* ndjson files
-    ndjson_files = sorted(
-        f for f in DATA_DIR.glob("*.ndjson") if not f.name.startswith("multi-")
+    # Find all non-multi-* jsonl files
+    jsonl_files = sorted(
+        f for f in DATA_DIR.glob("*.jsonl") if not f.name.startswith("multi-")
     )
 
-    if not ndjson_files:
-        print(f"No non-multi-* .ndjson files found in {DATA_DIR}")
+    if not jsonl_files:
+        print(f"No non-multi-* .jsonl files found in {DATA_DIR}")
         return
 
-    print(f"Found {len(ndjson_files)} data files (excluding multi-*):\n")
-    for f in ndjson_files:
+    print(f"Found {len(jsonl_files)} data files (excluding multi-*):\n")
+    for f in jsonl_files:
         print(f"  - {f.name}")
     print()
 
     # Load and extract data from all files
     all_data = {}
-    for filepath in ndjson_files:
+    for filepath in jsonl_files:
         print(f"Loading {filepath.name}...")
-        records = load_ndjson(filepath)
+        records = load_jsonl(filepath)
         timestamps, in_amounts, out_amounts, height_diffs = extract_data(records)
         all_data[filepath.name] = (timestamps, in_amounts, out_amounts, height_diffs)
         print(f"  -> {len(records)} records loaded")
@@ -794,12 +794,12 @@ def main():
         if blockchain_txs:
             print(f"\nExtracting time_diff data...")
             all_time_data = {}
-            for filepath in ndjson_files:
+            for filepath in jsonl_files:
                 pair_name = filepath.stem
                 # Process all pairs that have blockchain data
                 if any(chain in pair_name for chain in ['BTC', 'ETH', 'DOGE', 'LTC']):
                     print(f"  Processing {pair_name}...")
-                    records = load_ndjson(filepath)
+                    records = load_jsonl(filepath)
                     timestamps, time_diffs = extract_time_diffs(records, blockchain_txs, pair_name)
                     if len(timestamps) > 0:
                         all_time_data[filepath.name] = (timestamps, time_diffs)
@@ -827,13 +827,13 @@ def main():
         fig, axes = plt.subplots(3, 1, figsize=(14, 12), sharex=True)
         for idx, (pair1, pair2, title) in enumerate(LTC_PAIR_GROUPS):
             ax = axes[idx]
-            key1 = f"{pair1}.ndjson"
+            key1 = f"{pair1}.jsonl"
             if key1 in all_data:
                 timestamps, in_amounts, _, _ = all_data[key1]
                 dates, tx_counts, _ = aggregate_daily(timestamps, in_amounts)
                 color, _ = get_pair_style(pair1)
                 ax.bar(dates, tx_counts, label=PAIR_LABELS.get(pair1), alpha=0.7, color=color, width=0.4)
-            key2 = f"{pair2}.ndjson"
+            key2 = f"{pair2}.jsonl"
             if key2 in all_data:
                 timestamps, in_amounts, _, _ = all_data[key2]
                 dates, tx_counts, _ = aggregate_daily(timestamps, in_amounts)
@@ -857,13 +857,13 @@ def main():
         fig, axes = plt.subplots(3, 1, figsize=(14, 12), sharex=True)
         for idx, (pair1, pair2, title) in enumerate(LTC_PAIR_GROUPS):
             ax = axes[idx]
-            key1 = f"{pair1}.ndjson"
+            key1 = f"{pair1}.jsonl"
             if key1 in all_data:
                 timestamps, in_amounts, _, _ = all_data[key1]
                 dates, _, total_amounts = aggregate_daily(timestamps, in_amounts)
                 color, _ = get_pair_style(pair1)
                 ax.bar(dates, total_amounts, label=PAIR_LABELS.get(pair1), alpha=0.7, color=color, width=0.4)
-            key2 = f"{pair2}.ndjson"
+            key2 = f"{pair2}.jsonl"
             if key2 in all_data:
                 timestamps, in_amounts, _, _ = all_data[key2]
                 dates, _, total_amounts = aggregate_daily(timestamps, in_amounts)
@@ -891,7 +891,7 @@ def main():
             ax_left = axes[idx]
             ax_right = ax_left.twinx()
             for i, pair_name in enumerate([pair1, pair2]):
-                key = f"{pair_name}.ndjson"
+                key = f"{pair_name}.jsonl"
                 if key not in all_data:
                     continue
                 _, _, _, height_diffs = all_data[key]
@@ -931,7 +931,7 @@ def main():
         for idx, (pair1, pair2, title) in enumerate(LTC_PAIR_GROUPS):
             ax = axes[idx]
             for pair_name in [pair1, pair2]:
-                key = f"{pair_name}.ndjson"
+                key = f"{pair_name}.jsonl"
                 if key in all_data:
                     timestamps, _, _, height_diffs = all_data[key]
                     scatter_pair(ax, timestamps, height_diffs, pair_name)
@@ -975,7 +975,7 @@ def main():
                 for idx, (pair1, pair2, title) in enumerate(LTC_PAIR_GROUPS):
                     ax = axes[idx]
                     for pair_name in [pair1, pair2]:
-                        key = f"{pair_name}.ndjson"
+                        key = f"{pair_name}.jsonl"
                         if key in data:
                             timestamps, time_diffs = data[key]
                             if len(timestamps) > 0:
@@ -1000,7 +1000,7 @@ def main():
                 all_min, all_max = [], []
                 for pair1, pair2, _ in LTC_PAIR_GROUPS:
                     for pair_name in [pair1, pair2]:
-                        key = f"{pair_name}.ndjson"
+                        key = f"{pair_name}.jsonl"
                         if key in data:
                             _, time_diffs = data[key]
                             if len(time_diffs) > 0:
@@ -1017,7 +1017,7 @@ def main():
                     ax_left = axes[idx]
                     ax_right = ax_left.twinx()
                     for i, pair_name in enumerate([pair1, pair2]):
-                        key = f"{pair_name}.ndjson"
+                        key = f"{pair_name}.jsonl"
                         if key not in data:
                             continue
                         _, time_diffs = data[key]

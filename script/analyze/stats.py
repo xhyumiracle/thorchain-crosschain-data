@@ -14,8 +14,8 @@ import statistics
 DATA_DIR = Path(__file__).parent.parent.parent / "data" / "thorchain-2025"
 
 
-def load_ndjson(filepath: Path) -> list[dict]:
-    """Load records from an ndjson file."""
+def load_jsonl(filepath: Path) -> list[dict]:
+    """Load records from an jsonl file."""
     records = []
     with open(filepath, "r") as f:
         for line in f:
@@ -162,19 +162,19 @@ def print_report(pair_analyses: list[dict]):
 
 
 def main():
-    # Find all ndjson files
-    ndjson_files = sorted(DATA_DIR.glob("*.ndjson"))
+    # Find all jsonl files
+    jsonl_files = sorted(DATA_DIR.glob("*.jsonl"))
 
-    if not ndjson_files:
-        print(f"No .ndjson files found in {DATA_DIR}")
+    if not jsonl_files:
+        print(f"No .jsonl files found in {DATA_DIR}")
         return
 
-    print(f"Found {len(ndjson_files)} data files in {DATA_DIR}\n")
+    print(f"Found {len(jsonl_files)} data files in {DATA_DIR}\n")
 
     pair_analyses = []
-    for filepath in ndjson_files:
+    for filepath in jsonl_files:
         print(f"Processing {filepath.name}...")
-        records = load_ndjson(filepath)
+        records = load_jsonl(filepath)
         analysis = analyze_pair(records, filepath.name)
         pair_analyses.append(analysis)
 

@@ -5,10 +5,10 @@
 Extract THORChain artifacts for each group.
 
 This script:
-1. Reads common_ancestor_depth_N.ndjson files from data/partial_a5a023/
+1. Reads common_ancestor_depth_N.jsonl files from data/partial_a5a023/
 2. For each group, extracts all cc_txids from endpoints
-3. Finds matching records in thorchain-2025/ETH-BTC.ndjson
-4. Saves each group's THORChain records to thor-artifacts/{group_id}.ndjson
+3. Finds matching records in thorchain-2025/ETH-BTC.jsonl
+4. Saves each group's THORChain records to thor-artifacts/{group_id}.jsonl
 
 Usage:
     uv run python extract_thor_artifacts.py
@@ -23,7 +23,7 @@ SCRIPT_DIR = Path(__file__).parent  # scripts/utils/
 BYBITHACK_DIR = SCRIPT_DIR.parent.parent  # bybithack/
 DATA_DIR = BYBITHACK_DIR / "data" / "partial_a5a023"
 THOR_ARTIFACTS_DIR = BYBITHACK_DIR / ".local" / "thor-artifacts"
-THORCHAIN_FILE = BYBITHACK_DIR.parent / "data" / "thorchain-2025" / "ETH-BTC.ndjson"
+THORCHAIN_FILE = BYBITHACK_DIR.parent / "data" / "thorchain-2025" / "ETH-BTC.jsonl"
 
 
 def normalize_txid(txid: str) -> str:
@@ -98,12 +98,12 @@ def extract_group_artifacts(group: Dict, thor_records: Dict[str, Dict]) -> list:
     return artifacts
 
 
-def process_ndjson_file(input_file: Path, thor_records: Dict[str, Dict]):
+def process_jsonl_file(input_file: Path, thor_records: Dict[str, Dict]):
     """
-    Process a single ndjson file and extract artifacts for each group.
+    Process a single jsonl file and extract artifacts for each group.
 
     Args:
-        input_file: Path to input ndjson file
+        input_file: Path to input jsonl file
         thor_records: Dict of thorchain records
     """
     print(f"\n[INFO] Processing {input_file.name}...")
@@ -123,7 +123,7 @@ def process_ndjson_file(input_file: Path, thor_records: Dict[str, Dict]):
                 artifacts = extract_group_artifacts(group, thor_records)
 
                 # Save to file
-                output_file = THOR_ARTIFACTS_DIR / f"{group_id}.ndjson"
+                output_file = THOR_ARTIFACTS_DIR / f"{group_id}.jsonl"
                 output_file.parent.mkdir(parents=True, exist_ok=True)
 
                 with open(output_file, 'w') as out_f:
@@ -150,30 +150,30 @@ def main():
         print("[ERROR] No THORChain records loaded!")
         return
 
-    # Find all depth ndjson files
-    ndjson_files = sorted(DATA_DIR.glob("common_ancestor_depth_*.ndjson"))
+    # Find all depth jsonl files
+    jsonl_files = sorted(DATA_DIR.glob("common_ancestor_depth_*.jsonl"))
 
-    if not ndjson_files:
-        print(f"[ERROR] No common_ancestor_depth_*.ndjson files found in {DATA_DIR}")
+    if not jsonl_files:
+        print(f"[ERROR] No common_ancestor_depth_*.jsonl files found in {DATA_DIR}")
         return
 
-    print(f"[INFO] Found {len(ndjson_files)} ndjson files")
+    print(f"[INFO] Found {len(jsonl_files)} jsonl files")
 
     # Process each file
     total_groups = 0
     total_artifacts = 0
 
-    for ndjson_file in ndjson_files:
-        process_ndjson_file(ndjson_file, thor_records)
+    for jsonl_file in jsonl_files:
+        process_jsonl_file(jsonl_file, thor_records)
 
         # Count processed groups and artifacts
-        with open(ndjson_file, 'r') as f:
+        with open(jsonl_file, 'r') as f:
             for line in f:
                 if line.strip():
                     total_groups += 1
 
     # Count total artifacts
-    artifact_files = list(THOR_ARTIFACTS_DIR.glob("*.ndjson"))
+    artifact_files = list(THOR_ARTIFACTS_DIR.glob("*.jsonl"))
     for artifact_file in artifact_files:
         with open(artifact_file, 'r') as f:
             for line in f:

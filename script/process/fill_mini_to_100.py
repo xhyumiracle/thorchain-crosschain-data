@@ -15,13 +15,13 @@ INPUT_DIR = Path("data/thorchain-2025-high-fast")
 MINI_DIR = Path("data/thorchain-2025-high-fast-mini")
 TARGET_COUNT = 100
 RANDOM_SEED = 42  # for reproducibility
-SKIP_FILES = {"ETH-DOGE.ndjson"}  # Skip files with insufficient source data
+SKIP_FILES = {"ETH-DOGE.jsonl"}  # Skip files with insufficient source data
 
 def main():
     random.seed(RANDOM_SEED)
 
     # Find all mini files
-    mini_files = sorted(MINI_DIR.glob("*.ndjson"))
+    mini_files = sorted(MINI_DIR.glob("*.jsonl"))
 
     if not mini_files:
         print(f"No files in {MINI_DIR}")

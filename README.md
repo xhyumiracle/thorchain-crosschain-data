@@ -1,4 +1,57 @@
-# THORChain Crosschain Data
+---
+license: cc-by-4.0
+language:
+- en
+pretty_name: Thor25
+tags:
+- tabular
+- datasets
+- blockchain
+- blockchain-forensics
+- cryptocurrency
+- thorchain
+- cross-chain
+- transaction-tracing
+- digital-forensics
+- financial-crime
+- graph-reasoning
+- agent
+- benchmark
+- agentic-ai
+- agentic-benchmark
+- llm-agents
+- tool-use
+- environment-interaction
+size_categories:
+- 100K<n<1M
+configs:
+- config_name: thor25
+  data_files:
+  - split: train
+    path: data/thorchain-2025/*.jsonl
+- config_name: thor25hf
+  data_files:
+  - split: train
+    path: data/thorchain-2025-high-fast/*.jsonl
+- config_name: thor25hf-mini
+  data_files:
+  - split: test
+    path: data/thorchain-2025-high-fast-mini/*.jsonl
+- config_name: thor25m
+  data_files:
+  - split: train
+    path: data/thorchain-2025-multi/*.jsonl
+---
+
+# Thor25: THORChain Cross-Chain Data
+
+This repository contains the Thor25 dataset released with *LOCARD: An Agentic Framework for Blockchain Forensics*, published at IEEE ICBC 2026, Brisbane, Australia, June 1-5, 2026.
+
+Thor25 supports research on agentic blockchain forensics, cross-chain transaction tracing, and evidence-grounded tool use by LLM agents. It does not map cleanly to conventional NLP task categories such as question answering or text generation: solving each benchmark case requires an agent to iteratively interact with blockchain data and investigative tools in a real blockchain environment.
+
+- Paper DOI: https://doi.org/10.1109/ICBC67748.2026.11575479
+- Hugging Face dataset: https://huggingface.co/datasets/xhyumiracle/thor25
+- LOCARD code: https://github.com/xhyumiracle/locard
 
 ## About THORChain
 
@@ -23,8 +76,25 @@ THORChain supports cross-chain swaps across many blockchains (BTC, ETH, BSC, AVA
 **Current datasets**:
 - `thorchain-2025` (Thor25): Full 2025 dataset (151,461 standard 1-in-1-out swaps)
 - `thorchain-2025-high-fast` (Thor25HF): High amount (0.09 BTC / 1.9 ETH / 2.5 LTC / 1k DOGE) + Fast completion (≤30min, 20,235 records)
-- `thorchain-2025-high-fast-mini` (Thor25HF-mini): Mini test set sampled from HF (1,200 records, 100 per pair)
-- `thorchain-2025-multi` (Thor25M): Multi-output swaps (156 records, currently not used for queries)
+- `thorchain-2025-high-fast-mini` (Thor25HF-mini): Mini test set sampled from Thor25HF (1,200 records, 100 per pair)
+- `thorchain-2025-multi` (Thor25M): Multi-output swaps (166 records, currently not used for queries)
+
+## Hugging Face Usage
+
+```python
+from datasets import load_dataset
+
+dataset = load_dataset("xhyumiracle/thor25", "thor25hf-mini")
+print(dataset["test"][0])
+```
+
+Load the full dataset:
+
+```python
+from datasets import load_dataset
+
+dataset = load_dataset("xhyumiracle/thor25", "thor25")
+```
 
 ## Quick Start
 
@@ -40,6 +110,27 @@ uv run python script/process/gen_query.py --batch --input-dir data/thorchain-202
 # Generate queries for full dataset (~151k queries)
 uv run python script/process/gen_query.py --batch --input-dir data/thorchain-2025 --output-dir queries/thorchain-2025
 ```
+
+## Data Fields
+
+Each record contains:
+
+- `idx`: dataset-local sequential index.
+- `id`: hash-based stable identifier derived from transaction entries.
+- `timestamp`: THORChain action timestamp in Unix nanoseconds, UTC.
+- `type`: THORChain action type. This release keeps `swap` records.
+- `status`: THORChain action status. This release keeps `success` records.
+- `in`: list of source transaction entries.
+- `out`: list of destination transaction entries.
+
+Each entry in `in` and `out` includes:
+
+- `chain`: blockchain name, one of `BTC`, `ETH`, `DOGE`, or `LTC`.
+- `asset`: native asset name.
+- `txID`: blockchain transaction hash.
+- `address`: sender or receiver address.
+- `amount`: asset amount in THORChain Midgard base units.
+- `thorchainHeight`: THORChain block height.
 
 ## Data Characteristics
 
@@ -215,13 +306,13 @@ uv run python script/process/sample_mini.py
 ```
 
 #### gen_query.py
-Generate YAML batch query files from ndjson data.
+Generate YAML batch query files from jsonl data.
 
 ```bash
-# Generate from a single ndjson file
-uv run python script/process/gen_query.py --input ../../data/BTC-DOGE.ndjson --output ../../queries/BTC-DOGE.yaml
+# Generate from a single jsonl file
+uv run python script/process/gen_query.py --input ../../data/BTC-DOGE.jsonl --output ../../queries/BTC-DOGE.yaml
 
-# Generate from all ndjson files (batch mode)
+# Generate from all jsonl files (batch mode)
 uv run python script/process/gen_query.py --batch --input-dir ../../data --output-dir ../../queries
 
 # # Optional: Add timestamp_delta metadata (requires blockchain_txs/ directory from enrich/)
@@ -276,3 +367,32 @@ uv run python script/analyze/identify_slow_swaps.py -t 2000 -s 2025-03-01 -e 202
 # Export JSON
 uv run python script/analyze/identify_slow_swaps.py -t 5000 -o results.json
 ```
+
+## Intended Uses
+
+This dataset is intended for research on blockchain forensics and cross-chain transaction tracing, evaluation of agentic AI systems that perform evidence-grounded investigation, benchmarking retrieval/candidate-generation/ranking/forensic-reasoning workflows, and reproducibility of LOCARD experiments.
+
+## Limitations
+
+Thor25 is not a complete dataset of all THORChain activity. It focuses on selected native assets, successful swaps, and benchmark-friendly record types. Blockchain attribution is inherently uncertain, and benchmark results should not be interpreted as legal, compliance, or financial conclusions.
+
+The dataset contains public blockchain addresses and transaction hashes. Users should avoid attempting to deanonymize individuals or use the dataset for harmful surveillance.
+
+## Citation
+
+```bibtex
+@inproceedings{YuK26,
+  title     = {LOCARD: An Agentic Framework for Blockchain Forensics},
+  author    = {Xiaohang Yu and William Knottenbelt},
+  booktitle = {2026 IEEE International Conference on Blockchain and Cryptocurrency (ICBC)},
+  pages     = {1--9},
+  publisher = {IEEE},
+  year      = {2026},
+  doi       = {10.1109/ICBC67748.2026.11575479},
+  url       = {https://doi.org/10.1109/ICBC67748.2026.11575479}
+}
+```
+
+## License
+
+Thor25 is released under the Creative Commons Attribution 4.0 International license (`cc-by-4.0`).

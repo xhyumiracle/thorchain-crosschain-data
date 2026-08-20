@@ -8,14 +8,14 @@ New design (v2):
 - Each asset pair has its own cursor_ts and offset
 - Cursor moves backward by tracking min timestamp in each batch
 - Stops when all assets reach min_ts boundary
-- Supports seamless resume from existing ndjson files
+- Supports seamless resume from existing jsonl files
 
 Safety:
 - If data exists and neither --resume nor --fresh is provided, exit with a clear message.
 
 Output:
 - outdir/state.json
-- outdir/data/<slug>.ndjson for each assets entry
+- outdir/data/<slug>.jsonl for each assets entry
 """
 
 from __future__ import annotations
@@ -36,8 +36,8 @@ import requests
 from utils import (
     canonical_action_key,
     load_seen_keys,
-    get_min_timestamp_from_ndjson,
-    append_ndjson,
+    get_min_timestamp_from_jsonl,
+    append_jsonl,
 )
 
 
@@ -261,7 +261,7 @@ def main() -> None:
     ap.add_argument("--base-urls", type=str, default=",".join(DEFAULT_BASE_URLS),
                     help="comma-separated base urls for rotation")
 
-    ap.add_argument("--resume", action="store_true", help="Resume from existing data (reads min timestamp from ndjson files)")
+    ap.add_argument("--resume", action="store_true", help="Resume from existing data (reads min timestamp from jsonl files)")
     ap.add_argument(
         "--fresh",
         action="store_true",
@@ -340,19 +340,19 @@ def main() -> None:
 
     for assets in assets_list:
         slug = slugify_assets(assets)
-        ndjson_path = data_dir / f"{slug}.ndjson"
-        files[assets] = ndjson_path
+        jsonl_path = data_dir / f"{slug}.jsonl"
+        files[assets] = jsonl_path
 
         if args.no_dedup:
             seen[assets] = set()
         else:
             log(f"[INFO] loading dedup keys for assets={assets} ...")
-            seen[assets] = load_seen_keys(ndjson_path, log_func=log)
+            seen[assets] = load_seen_keys(jsonl_path, log_func=log)
 
         # Initialize cursor for this asset
-        if args.resume and ndjson_path.exists():
+        if args.resume and jsonl_path.exists():
             # Resume: start from min timestamp found in existing data
-            existing_min_ts = get_min_timestamp_from_ndjson(ndjson_path)
+            existing_min_ts = get_min_timestamp_from_jsonl(jsonl_path)
             if existing_min_ts is not None:
                 log(f"[INFO] {assets}: resuming from min_ts={existing_min_ts} ({ns_to_sec(existing_min_ts)} sec)")
                 cursors[assets] = AssetCursor(ts=existing_min_ts, offset=0)
@@ -538,7 +538,7 @@ def main() -> None:
                 a["_api_ts"] = cursor_ts_sec
                 a["_api_offset"] = cursor.offset
 
-            appended = append_ndjson(files[assets], filtered_actions, seen[assets])
+            appended = append_jsonl(files[assets], filtered_actions, seen[assets])
             total_appended += appended
             if appended:
                 log(f"[INFO] {assets}: appended {appended} new actions -> {files[assets].as_posix()}")

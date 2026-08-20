@@ -165,7 +165,7 @@ def main():
     print(f"{'='*70}\n")
 
     # Find all pair files
-    pair_files = sorted(SOURCE_DIR.glob("*.ndjson"))
+    pair_files = sorted(SOURCE_DIR.glob("*.jsonl"))
 
     results = []
 

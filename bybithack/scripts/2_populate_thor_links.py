@@ -53,16 +53,16 @@ def search_thorchain_data(txids: set, data_dir: Path) -> Dict[str, Dict]:
     """
     matched_records = {}
 
-    # Only search ETH-BTC.ndjson since we're looking for ETH->BTC swaps
-    ndjson_file = data_dir / "ETH-BTC.ndjson"
+    # Only search ETH-BTC.jsonl since we're looking for ETH->BTC swaps
+    jsonl_file = data_dir / "ETH-BTC.jsonl"
 
-    if not ndjson_file.exists():
-        print(f"[ERROR] File not found: {ndjson_file}")
+    if not jsonl_file.exists():
+        print(f"[ERROR] File not found: {jsonl_file}")
         return matched_records
 
-    print(f"[INFO] Searching {ndjson_file.name}...")
+    print(f"[INFO] Searching {jsonl_file.name}...")
 
-    with open(ndjson_file, 'r') as f:
+    with open(jsonl_file, 'r') as f:
         for line in f:
             line = line.strip()
             if not line:

@@ -59,14 +59,14 @@ def normalize_txid(chain: str, txid: str) -> str:
 
 
 def load_existing_txids(output_dir: Path) -> dict[str, set[str]]:
-    """Load already-fetched transaction IDs from existing ndjson files."""
+    """Load already-fetched transaction IDs from existing jsonl files."""
     existing = defaultdict(set)
 
     if not output_dir.exists():
         return existing
 
     for asset in CHAIN_MAP.keys():
-        output_file = output_dir / f"{asset.lower()}.ndjson"
+        output_file = output_dir / f"{asset.lower()}.jsonl"
         if not output_file.exists():
             continue
 
@@ -93,16 +93,16 @@ def collect_filtered_txids(source_dir: Path) -> dict[str, set[str]]:
     """Collect txids that pass custom amount thresholds."""
     txids_by_chain = defaultdict(set)
 
-    ndjson_files = list(source_dir.glob("*.ndjson"))
-    if not ndjson_files:
-        raise FileNotFoundError(f"No ndjson files found in {source_dir}")
+    jsonl_files = list(source_dir.glob("*.jsonl"))
+    if not jsonl_files:
+        raise FileNotFoundError(f"No jsonl files found in {source_dir}")
 
     print(f"\nCollecting txids with custom thresholds:")
     for asset, threshold in AMOUNT_THRESHOLDS.items():
         print(f"  {asset}: >= {threshold/1e8:.2f}")
     print()
 
-    for file_path in ndjson_files:
+    for file_path in jsonl_files:
         print(f"  Processing {file_path.name}...", end=" ", flush=True)
 
         count = 0
@@ -151,7 +151,7 @@ def fetch_and_append_blockchain_txs(
 
     for asset, all_txids in new_txids_by_chain.items():
         chain_name = CHAIN_MAP[asset]
-        output_file = OUTPUT_DIR / f"{asset.lower()}.ndjson"
+        output_file = OUTPUT_DIR / f"{asset.lower()}.jsonl"
 
         # Filter out existing txids
         existing = existing_txids.get(asset, set())

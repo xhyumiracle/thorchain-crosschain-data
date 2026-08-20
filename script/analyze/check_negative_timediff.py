@@ -25,7 +25,7 @@ SUPPORTED_CHAINS = ["BTC", "ETH", "DOGE", "LTC"]
 
 def load_blockchain_txs(asset: str) -> dict:
     """Load blockchain tx data for given asset."""
-    file = BLOCKCHAIN_TXS_DIR / f"{asset.lower()}.ndjson"
+    file = BLOCKCHAIN_TXS_DIR / f"{asset.lower()}.jsonl"
     if not file.exists():
         return {}
 
@@ -128,17 +128,17 @@ def main():
     if args.pairs:
         files = []
         for pair in args.pairs:
-            filename = f"{pair}.ndjson"
+            filename = f"{pair}.jsonl"
             filepath = data_dir / filename
             if filepath.exists():
                 files.append(filepath)
             else:
                 print(f"Warning: {filename} not found in {data_dir}")
     else:
-        files = sorted(data_dir.glob("*.ndjson"))
+        files = sorted(data_dir.glob("*.jsonl"))
 
     if not files:
-        print(f"No .ndjson files found in {data_dir}")
+        print(f"No .jsonl files found in {data_dir}")
         sys.exit(1)
 
     # Check each file

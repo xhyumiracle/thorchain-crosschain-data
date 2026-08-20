@@ -4,7 +4,7 @@
 """
 Merge two THORChain raw datasets with deduplication.
 
-This tool merges two directories containing ndjson files from different time periods,
+This tool merges two directories containing jsonl files from different time periods,
 removing duplicates and sorting by timestamp.
 
 Usage:
@@ -27,13 +27,13 @@ from typing import Any, Dict, List
 from utils import canonical_action_key
 
 
-def load_all_records(ndjson_path: Path) -> List[Dict[str, Any]]:
-    """Load all records from an ndjson file."""
-    if not ndjson_path.exists():
+def load_all_records(jsonl_path: Path) -> List[Dict[str, Any]]:
+    """Load all records from an jsonl file."""
+    if not jsonl_path.exists():
         return []
 
     records = []
-    with ndjson_path.open("r", encoding="utf-8") as f:
+    with jsonl_path.open("r", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if not line:
@@ -70,8 +70,8 @@ def merge_records(records1: List[Dict[str, Any]], records2: List[Dict[str, Any]]
     return merged
 
 
-def write_ndjson(path: Path, records: List[Dict[str, Any]]) -> None:
-    """Write records to ndjson file."""
+def write_jsonl(path: Path, records: List[Dict[str, Any]]) -> None:
+    """Write records to jsonl file."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as f:
         for record in records:
@@ -98,17 +98,17 @@ def main() -> None:
     if not dir2.exists():
         raise SystemExit(f"Error: {dir2} does not exist")
 
-    # Find all ndjson files in dir1
-    ndjson_files = sorted(dir1.glob("*.ndjson"))
+    # Find all jsonl files in dir1
+    jsonl_files = sorted(dir1.glob("*.jsonl"))
 
-    if not ndjson_files:
-        raise SystemExit(f"Error: No .ndjson files found in {dir1}")
+    if not jsonl_files:
+        raise SystemExit(f"Error: No .jsonl files found in {dir1}")
 
     print(f"[INFO] Merging datasets:")
     print(f"  dir1: {dir1.resolve()}")
     print(f"  dir2: {dir2.resolve()}")
     print(f"  outdir: {outdir.resolve()}")
-    print(f"  Found {len(ndjson_files)} files to process")
+    print(f"  Found {len(jsonl_files)} files to process")
     print()
 
     total_records_1 = 0
@@ -116,8 +116,8 @@ def main() -> None:
     total_merged = 0
     total_duplicates = 0
 
-    for ndjson_file in ndjson_files:
-        filename = ndjson_file.name
+    for jsonl_file in jsonl_files:
+        filename = jsonl_file.name
         file1 = dir1 / filename
         file2 = dir2 / filename
         outfile = outdir / filename
@@ -139,7 +139,7 @@ def main() -> None:
 
         # Write output
         if not args.dry_run:
-            write_ndjson(outfile, merged)
+            write_jsonl(outfile, merged)
             print(f"  written to: {outfile}")
         else:
             print(f"  [DRY RUN] would write to: {outfile}")

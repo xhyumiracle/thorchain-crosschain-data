@@ -63,7 +63,7 @@ def test_thresholds(data_dir, blockchain_txs, thresholds):
     results = {}
     
     for pair_name, asset in pairs:
-        pair_file = data_dir / f"{pair_name}.ndjson"
+        pair_file = data_dir / f"{pair_name}.jsonl"
         if not pair_file.exists():
             continue
         

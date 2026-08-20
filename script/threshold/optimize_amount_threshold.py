@@ -147,18 +147,18 @@ def main():
     
     # Test pairs
     pairs_to_test = [
-        ("BTC-DOGE.ndjson", "BTC"),
-        ("BTC-ETH.ndjson", "BTC"),
-        ("BTC-LTC.ndjson", "BTC"),
-        ("DOGE-BTC.ndjson", "DOGE"),
-        ("DOGE-ETH.ndjson", "DOGE"),
-        ("DOGE-LTC.ndjson", "DOGE"),
-        ("ETH-BTC.ndjson", "ETH"),
-        ("ETH-DOGE.ndjson", "ETH"),
-        ("ETH-LTC.ndjson", "ETH"),
-        ("LTC-BTC.ndjson", "LTC"),
-        ("LTC-DOGE.ndjson", "LTC"),
-        ("LTC-ETH.ndjson", "LTC"),
+        ("BTC-DOGE.jsonl", "BTC"),
+        ("BTC-ETH.jsonl", "BTC"),
+        ("BTC-LTC.jsonl", "BTC"),
+        ("DOGE-BTC.jsonl", "DOGE"),
+        ("DOGE-ETH.jsonl", "DOGE"),
+        ("DOGE-LTC.jsonl", "DOGE"),
+        ("ETH-BTC.jsonl", "ETH"),
+        ("ETH-DOGE.jsonl", "ETH"),
+        ("ETH-LTC.jsonl", "ETH"),
+        ("LTC-BTC.jsonl", "LTC"),
+        ("LTC-DOGE.jsonl", "LTC"),
+        ("LTC-ETH.jsonl", "LTC"),
     ]
     
     print("Finding optimal thresholds for each pair (target: 100 records with time <= 30min)\n")

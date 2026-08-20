@@ -131,7 +131,7 @@ def main():
     print()
 
     # Process each pair
-    pair_files = sorted(SOURCE_DIR.glob("*.ndjson"))
+    pair_files = sorted(SOURCE_DIR.glob("*.jsonl"))
 
     results = []
     for pair_file in pair_files:

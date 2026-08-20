@@ -43,7 +43,7 @@ def main():
         # Sample specific pairs
         files = []
         for pair in args.pairs:
-            filename = f"{pair}.ndjson"
+            filename = f"{pair}.jsonl"
             filepath = INPUT_DIR / filename
             if filepath.exists():
                 files.append(filepath)
@@ -52,7 +52,7 @@ def main():
         files = sorted(files)
     else:
         # Sample all pairs
-        files = sorted(INPUT_DIR.glob("*.ndjson"))
+        files = sorted(INPUT_DIR.glob("*.jsonl"))
 
     if not files:
         print(f"No files to process")

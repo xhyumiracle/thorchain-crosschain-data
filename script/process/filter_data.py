@@ -221,7 +221,7 @@ def filter_file(
     end_date: datetime | None,
     blockchain_txs: dict[str, dict] | None,
 ) -> dict:
-    """Filter a single ndjson file and return statistics."""
+    """Filter a single jsonl file and return statistics."""
     counts = {'total': 0, 'kept': 0}
     metric_values = []  # For storing height_diff or time_diff values
     kept_records = []  # Store records that pass filters
@@ -491,7 +491,7 @@ def main():
             print(f"\nMissing data for: {', '.join(missing_data)}")
             print(f"\nExpected files:")
             for asset in missing_data:
-                print(f"  {blockchain_tx_dir / f'{asset.lower()}.ndjson'}")
+                print(f"  {blockchain_tx_dir / f'{asset.lower()}.jsonl'}")
             print(f"\nPlease fetch blockchain transactions first:")
             print(f"  uv run python script/enrich/fetch_blockchain_txs.py")
             print(f"{'='*70}\n")
@@ -544,9 +544,9 @@ def main():
     print(f"{'='*70}\n")
 
     # Find input files
-    files = list(input_dir.glob("*.ndjson"))
+    files = list(input_dir.glob("*.jsonl"))
     if not files:
-        print(f"No ndjson files found in {input_dir}")
+        print(f"No jsonl files found in {input_dir}")
         return
 
     # Filter files

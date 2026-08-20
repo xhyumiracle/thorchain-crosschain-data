@@ -6,10 +6,10 @@ Shared utilities for THORChain data processing.
 
 Functions:
 - canonical_action_key: Generate unique key for action deduplication
-- load_seen_keys: Load existing keys from ndjson file
-- get_min_timestamp_from_ndjson: Find minimum timestamp in ndjson file
-- get_max_timestamp_from_ndjson: Find maximum timestamp in ndjson file
-- append_ndjson: Append records to ndjson with deduplication
+- load_seen_keys: Load existing keys from jsonl file
+- get_min_timestamp_from_jsonl: Find minimum timestamp in jsonl file
+- get_max_timestamp_from_jsonl: Find maximum timestamp in jsonl file
+- append_jsonl: Append records to jsonl with deduplication
 """
 
 from __future__ import annotations
@@ -50,26 +50,26 @@ def canonical_action_key(action: Dict[str, Any]) -> str:
     return f"{date}|{height}|{typ}|{status}|{memo}|in:{in_tx}|out:{out_tx}"
 
 
-def load_seen_keys(ndjson_path: Path, cap_lines: int = 2_000_000, log_func=None) -> set:
+def load_seen_keys(jsonl_path: Path, cap_lines: int = 2_000_000, log_func=None) -> set:
     """
-    Load canonical keys from existing ndjson file for deduplication.
+    Load canonical keys from existing jsonl file for deduplication.
 
     Args:
-        ndjson_path: Path to ndjson file
+        jsonl_path: Path to jsonl file
         cap_lines: Maximum lines to read (default: 2M)
         log_func: Optional logging function
 
     Returns:
         Set of canonical keys
     """
-    if not ndjson_path.exists():
+    if not jsonl_path.exists():
         return set()
     keys = set()
-    with ndjson_path.open("r", encoding="utf-8") as f:
+    with jsonl_path.open("r", encoding="utf-8") as f:
         for i, line in enumerate(f):
             if i >= cap_lines:
                 if log_func:
-                    log_func(f"[WARN] dedup key load capped at {cap_lines} lines for {ndjson_path.name}")
+                    log_func(f"[WARN] dedup key load capped at {cap_lines} lines for {jsonl_path.name}")
                 break
             line = line.strip()
             if not line:
@@ -82,21 +82,21 @@ def load_seen_keys(ndjson_path: Path, cap_lines: int = 2_000_000, log_func=None)
     return keys
 
 
-def get_min_timestamp_from_ndjson(ndjson_path: Path) -> Optional[int]:
+def get_min_timestamp_from_jsonl(jsonl_path: Path) -> Optional[int]:
     """
-    Scan ndjson file to find the minimum timestamp (in nanoseconds).
+    Scan jsonl file to find the minimum timestamp (in nanoseconds).
 
     Args:
-        ndjson_path: Path to ndjson file
+        jsonl_path: Path to jsonl file
 
     Returns:
         Minimum timestamp in nanoseconds, or None if file doesn't exist or is empty
     """
-    if not ndjson_path.exists():
+    if not jsonl_path.exists():
         return None
 
     min_ts: Optional[int] = None
-    with ndjson_path.open("r", encoding="utf-8") as f:
+    with jsonl_path.open("r", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if not line:
@@ -112,21 +112,21 @@ def get_min_timestamp_from_ndjson(ndjson_path: Path) -> Optional[int]:
     return min_ts
 
 
-def get_max_timestamp_from_ndjson(ndjson_path: Path) -> Optional[int]:
+def get_max_timestamp_from_jsonl(jsonl_path: Path) -> Optional[int]:
     """
-    Scan ndjson file to find the maximum timestamp (in nanoseconds).
+    Scan jsonl file to find the maximum timestamp (in nanoseconds).
 
     Args:
-        ndjson_path: Path to ndjson file
+        jsonl_path: Path to jsonl file
 
     Returns:
         Maximum timestamp in nanoseconds, or None if file doesn't exist or is empty
     """
-    if not ndjson_path.exists():
+    if not jsonl_path.exists():
         return None
 
     max_ts: Optional[int] = None
-    with ndjson_path.open("r", encoding="utf-8") as f:
+    with jsonl_path.open("r", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if not line:
@@ -142,12 +142,12 @@ def get_max_timestamp_from_ndjson(ndjson_path: Path) -> Optional[int]:
     return max_ts
 
 
-def append_ndjson(path: Path, records: List[Dict[str, Any]], seen: set) -> int:
+def append_jsonl(path: Path, records: List[Dict[str, Any]], seen: set) -> int:
     """
-    Append records to ndjson file with deduplication.
+    Append records to jsonl file with deduplication.
 
     Args:
-        path: Path to ndjson file
+        path: Path to jsonl file
         records: List of action records to append
         seen: Set of canonical keys already seen (will be updated)
 

@@ -30,7 +30,7 @@ def main():
 
     for query_file in query_files:
         pair = query_file.stem
-        mini_file = MINI_DIR / f"{pair}.ndjson"
+        mini_file = MINI_DIR / f"{pair}.jsonl"
 
         if not mini_file.exists():
             print(f"{pair}: Mini file not found")

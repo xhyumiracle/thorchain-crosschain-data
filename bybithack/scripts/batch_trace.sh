@@ -87,7 +87,7 @@ for addr in "${START_ADDRESSES[@]}"; do
     # Count high-fast matches
     highfast_count=0
     while IFS= read -r txid; do
-        if grep -qi "$txid" "$PROJECT_ROOT/data/thorchain/data/thorchain-2025-high-fast"/*.ndjson 2>/dev/null; then
+        if grep -qi "$txid" "$PROJECT_ROOT/data/thorchain/data/thorchain-2025-high-fast"/*.jsonl 2>/dev/null; then
             highfast_count=$((highfast_count + 1))
             echo "$txid" >> "$OUTPUT_DIR/highfast_matches.txt"
         fi
@@ -96,7 +96,7 @@ for addr in "${START_ADDRESSES[@]}"; do
     # Count regular 2025 matches
     reg_count=0
     while IFS= read -r txid; do
-        if grep -qi "$txid" "$PROJECT_ROOT/data/thorchain/data/thorchain-2025"/*.ndjson 2>/dev/null; then
+        if grep -qi "$txid" "$PROJECT_ROOT/data/thorchain/data/thorchain-2025"/*.jsonl 2>/dev/null; then
             reg_count=$((reg_count + 1))
         fi
     done < "$OUTPUT_DIR/thor_txids.txt"

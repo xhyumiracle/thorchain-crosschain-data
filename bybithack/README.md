@@ -14,15 +14,15 @@ scripts/start_addresses.txt
   → data/partial_a5a023_eth_raw.json (42 paths)
   → scripts/2_populate_thor_links.py (match thor2025 dataset)
   → scripts/3_split_by_ancestor.py (group by common ancestor)
-  → data/partial_a5a023/common_ancestor_depth_[1-3].ndjson (final data)
+  → data/partial_a5a023/common_ancestor_depth_[1-3].jsonl (final data)
 ```
 
 ## Data Files
 
 ### Final Dataset (Used in Experiments)
-- **data/partial_a5a023/common_ancestor_depth_1.ndjson**: 6 groups (depth-1 ancestors)
-- **data/partial_a5a023/common_ancestor_depth_2.ndjson**: 2 groups (depth-2 ancestors)
-- **data/partial_a5a023/common_ancestor_depth_3.ndjson**: 1 group (32 endpoints, root exploiter `0xa5a023...`)
+- **data/partial_a5a023/common_ancestor_depth_1.jsonl**: 6 groups (depth-1 ancestors)
+- **data/partial_a5a023/common_ancestor_depth_2.jsonl**: 2 groups (depth-2 ancestors)
+- **data/partial_a5a023/common_ancestor_depth_3.jsonl**: 1 group (32 endpoints, root exploiter `0xa5a023...`)
 
 ### Intermediate Data
 - **data/partial_a5a023_eth_raw.json**: Raw BFS trace with 42 Thor paths (35 matched)
@@ -71,7 +71,7 @@ All scripts in `scripts/` directory.
 
 ### Common Ancestor Groups
 
-Each ndjson line = 1 group:
+Each jsonl line = 1 group:
 
 ```json
 {

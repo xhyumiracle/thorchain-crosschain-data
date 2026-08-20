@@ -20,8 +20,8 @@ MINI_DIR = THORCHAIN_DIR / "data" / "thorchain-2025-high-fast-mini"
 
 # Map benchmark directory names to mini dataset file names
 PAIR_MAPPING = {
-    "btc_doge": "BTC-DOGE.ndjson",
-    "doge_btc": "DOGE-BTC.ndjson",
+    "btc_doge": "BTC-DOGE.jsonl",
+    "doge_btc": "DOGE-BTC.jsonl",
 }
 
 def load_mini_ids(mini_file: Path) -> set:
